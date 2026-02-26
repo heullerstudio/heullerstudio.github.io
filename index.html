@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Heuller Studio — Tom Hwang</title>
+  <title>Heuller Studio &mdash; Tom Hwang</title>
   <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -89,7 +89,8 @@
     .meta-cell { flex: 1; min-width: 110px; padding: 1.2rem 2rem; border-right: 1px solid var(--faint); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--mid); line-height: 1.8; }
     .meta-cell:last-child { border-right: none; }
     .meta-cell strong { display: block; font-size: 10px; font-weight: 500; color: var(--ink); letter-spacing: 0.08em; }
-    .proj-img-hero { width: 100%; aspect-ratio: 16/6; background: #1a1918; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--ink); }
+    .proj-img-hero { width: 100%; aspect-ratio: 16/6; background: #1a1918; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--ink); overflow: hidden; }
+    .proj-img-hero img { width: 100%; height: 100%; object-fit: cover; }
     .img-ph { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.2); }
     .proj-body { border-bottom: 1px solid var(--ink); }
     .body-section { display: grid; grid-template-columns: 160px 1fr 1fr; border-bottom: 1px solid var(--faint); }
@@ -99,8 +100,9 @@
     .body-text p { margin-bottom: 1rem; }
     .body-text p:last-child { margin-bottom: 0; }
     .proj-img-grid { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--ink); }
-    .proj-img-cell { aspect-ratio: 4/3; background: #1e1d1b; border-right: 1px solid var(--faint); display: flex; align-items: center; justify-content: center; }
+    .proj-img-cell { aspect-ratio: 4/3; background: #1e1d1b; border-right: 1px solid var(--faint); display: flex; align-items: center; justify-content: center; overflow: hidden; }
     .proj-img-cell:last-child { border-right: none; }
+    .proj-img-cell img { width: 100%; height: 100%; object-fit: cover; }
     .proj-nav { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--ink); }
     .proj-nav-btn { padding: 2rem 2.5rem; background: none; border: none; border-right: 1px solid var(--faint); cursor: pointer; display: flex; flex-direction: column; gap: 0.4rem; transition: background 0.2s; text-align: left; font-family: var(--f); }
     .proj-nav-btn:last-child { border-right: none; text-align: right; align-items: flex-end; }
@@ -134,15 +136,15 @@
           </button>
           <button class="cat-btn" onclick="setCategory('unreal')">
             <div class="cat-top"><span class="cat-label">Unreal Engine</span><span class="cat-count" id="count-unreal">3</span></div>
-            <span class="cat-note">Media Art · Projection Mapping · Interaction</span>
+            <span class="cat-note">Media Art &middot; Projection Mapping &middot; Interaction</span>
           </button>
           <button class="cat-btn" onclick="setCategory('design')">
             <div class="cat-top"><span class="cat-label">Design Lecture</span><span class="cat-count" id="count-design">3</span></div>
-            <span class="cat-note">Design Studio · Design Research · Publication</span>
+            <span class="cat-note">Design Studio &middot; Design Research &middot; Publication</span>
           </button>
           <button class="cat-btn" onclick="setCategory('ai')">
             <div class="cat-top"><span class="cat-label">AI Projects</span><span class="cat-count" id="count-ai">3</span></div>
-            <span class="cat-note">Chrome Extension · Automation · Research AI Agent</span>
+            <span class="cat-note">Chrome Extension &middot; Automation &middot; Research AI Agent</span>
           </button>
           <button class="cat-btn" onclick="setCategory('art')">
             <div class="cat-top"><span class="cat-label">Conceptual Art</span><span class="cat-count" id="count-art">2</span></div>
@@ -153,7 +155,7 @@
       <div class="sidebar-bio">
         <p class="bio-name">Tom Hwang</p>
         <p class="bio-roles">Professor<br>Product Designer<br>Media Artist</p>
-        <p class="bio-contact"><a href="/cdn-cgi/l/email-protection#deadaaabbab7b19eb6bbabb2b2bbacf0bdb1b3"><span class="__cf_email__" data-cfemail="added9d8c9c4c2edc5c8d8c1c1c8df83cec2c0">[email&#160;protected]</span></a></p>
+        <p class="bio-contact"><a href="mailto:studio@heuller.com">studio@heuller.com</a></p>
       </div>
     </aside>
     <main class="main" id="main-scroll">
@@ -167,7 +169,7 @@
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;">
           <div style="padding:2.5rem;border-right:1px solid var(--faint);font-size:12px;line-height:1.9;color:var(--mid);">
             <p style="font-size:9px;font-weight:500;letter-spacing:0.22em;text-transform:uppercase;color:var(--orange);margin-bottom:1rem;">Practice</p>
-            <p>Heuller Studio is the practice of <strong style="color:var(--ink);font-weight:500;">Tom Hwang</strong> — product designer, CMF designer, and design educator based in Seoul.</p>
+            <p>Heuller Studio is the practice of <strong style="color:var(--ink);font-weight:500;">Tom Hwang</strong> &mdash; product designer, CMF designer, and design educator based in Seoul.</p>
             <p style="margin-top:1rem;">The work spans real-time media production, physical computing and interactive installation, design education, AI tooling, and independent conceptual projects.</p>
           </div>
           <div style="padding:2.5rem;border-right:1px solid var(--faint);font-size:12px;color:var(--mid);">
@@ -191,8 +193,8 @@
       <div id="contact-anchor" style="border-top:1px solid var(--ink);">
         <div style="padding:0.8rem 2.5rem;border-bottom:1px solid var(--faint);"><span style="font-size:9px;font-weight:500;letter-spacing:0.22em;text-transform:uppercase;">Contact</span></div>
         <div style="padding:2.5rem;font-size:12px;color:var(--mid);">
-          <div style="display:grid;grid-template-columns:110px 1fr;padding:0.75rem 0;border-top:1px solid var(--faint);"><span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;">Email</span><span><a href="/cdn-cgi/l/email-protection#2152555445484e614944544d4d44530f424e4c" style="color:var(--ink);text-decoration:none;"><span class="__cf_email__" data-cfemail="c9babdbcada0a689a1acbca5a5acbbe7aaa6a4">[email&#160;protected]</span></a></span></div>
-          <div style="display:grid;grid-template-columns:110px 1fr;padding:0.75rem 0;border-top:1px solid var(--faint);"><span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;">Location</span><span>Seoul, KR — available globally</span></div>
+          <div style="display:grid;grid-template-columns:110px 1fr;padding:0.75rem 0;border-top:1px solid var(--faint);"><span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;">Email</span><span><a href="mailto:studio@heuller.com" style="color:var(--ink);text-decoration:none;">studio@heuller.com</a></span></div>
+          <div style="display:grid;grid-template-columns:110px 1fr;padding:0.75rem 0;border-top:1px solid var(--faint);"><span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;">Location</span><span>Seoul, KR &mdash; available globally</span></div>
           <div style="display:grid;grid-template-columns:110px 1fr;padding:0.75rem 0;border-top:1px solid var(--faint);border-bottom:1px solid var(--faint);"><span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;">Open for</span><span>Commissions, Lectures, Collaborations</span></div>
         </div>
       </div>
@@ -200,7 +202,7 @@
   </div>
   <footer>
     <span class="footer-brand">Heuller Studio</span>
-    <span class="footer-copy">© 2025 Tom Hwang / Heuller Studio</span>
+    <span class="footer-copy">&copy; 2025 Tom Hwang / Heuller Studio</span>
   </footer>
 </div>
 
@@ -208,10 +210,10 @@
 <div class="view" id="view-project">
   <nav style="grid-template-columns:1fr auto;">
     <div class="nav-brand" onclick="showIndex()">Heuller Studio</div>
-    <ul class="nav-links"><li><button onclick="showIndex()">← All Work</button></li></ul>
+    <ul class="nav-links"><li><button onclick="showIndex()">&larr; All Work</button></li></ul>
   </nav>
   <div class="back-bar">
-    <button class="back-btn" onclick="showIndex()">← All Work</button>
+    <button class="back-btn" onclick="showIndex()">&larr; All Work</button>
     <span class="back-cat" id="proj-back-cat"></span>
     <span class="back-proj" id="proj-back-name"></span>
   </div>
@@ -226,7 +228,7 @@
       </div>
     </div>
     <div class="proj-meta" id="proj-meta"></div>
-    <div class="proj-img-hero" id="proj-img-hero"><span class="img-ph">Main Image — add heroImage path to project data</span></div>
+    <div class="proj-img-hero" id="proj-img-hero"><span class="img-ph">Main Image</span></div>
     <div class="proj-body" id="proj-body"></div>
     <div class="proj-img-grid" id="proj-img-grid">
       <div class="proj-img-cell"><span class="img-ph">Detail 01</span></div>
@@ -234,28 +236,22 @@
     </div>
     <div class="proj-nav">
       <button class="proj-nav-btn" id="proj-prev" onclick="navProject(-1)">
-        <span class="proj-nav-dir">← Previous</span>
-        <span class="proj-nav-name" id="proj-prev-name">—</span>
+        <span class="proj-nav-dir">&larr; Previous</span>
+        <span class="proj-nav-name" id="proj-prev-name">&mdash;</span>
       </button>
       <button class="proj-nav-btn" id="proj-next" onclick="navProject(1)">
-        <span class="proj-nav-dir">Next →</span>
-        <span class="proj-nav-name" id="proj-next-name">—</span>
+        <span class="proj-nav-dir">Next &rarr;</span>
+        <span class="proj-nav-name" id="proj-next-name">&mdash;</span>
       </button>
     </div>
   </div>
   <footer style="grid-template-columns:1fr 1fr;">
     <span class="footer-brand">Heuller Studio</span>
-    <span class="footer-copy">© 2025 Tom Hwang / Heuller Studio</span>
+    <span class="footer-copy">&copy; 2025 Tom Hwang / Heuller Studio</span>
   </footer>
 </div>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
-// =================================================================
-// PROJECT DATA — edit this section to add your real work
-// featured: true  = clicking opens a full project detail page
-// featured: false = clicking expands an inline description
-// =================================================================
-
+<script>
 var PROJECTS = [
 
   // ── UNREAL ENGINE ──────────────────────────────────────────────
@@ -270,7 +266,7 @@ var PROJECTS = [
     tags: ["UE5", "Projection", "Architecture"],
     description: "[Describe this project in 1-2 sentences. What was it, where, for whom?]",
     featured: true,
-    heroImage: "img/test02.png",
+    heroImage: "",
     images: ["", ""],
     specs: { "Type": "[e.g. Architectural Projection]", "Engine": "Unreal Engine 5", "Duration": "[e.g. 12 min]", "Year": "2024", "Location": "[City]" },
     body: [
@@ -423,9 +419,9 @@ var PROJECTS = [
 
 var CATEGORIES = [
   { id: "all",    label: "All Work",       note: "" },
-  { id: "unreal", label: "Unreal Engine",  note: "Media Art · Projection Mapping · Interaction" },
-  { id: "design", label: "Design Lecture", note: "Design Studio · Design Research · Publication" },
-  { id: "ai",     label: "AI Projects",    note: "Chrome Extension · Automation · Research AI Agent" },
+  { id: "unreal", label: "Unreal Engine",  note: "Media Art - Projection Mapping - Interaction" },
+  { id: "design", label: "Design Lecture", note: "Design Studio - Design Research - Publication" },
+  { id: "ai",     label: "AI Projects",    note: "Chrome Extension - Automation - Research AI Agent" },
   { id: "art",    label: "Conceptual Art", note: "Non-commercial R&D Projects" }
 ];
 
@@ -433,143 +429,189 @@ var activeCategory = "all";
 var openId = null;
 var currentProjectId = null;
 
-function showIndex() {
+window.showIndex = function() {
   document.getElementById("view-index").classList.add("active");
   document.getElementById("view-project").classList.remove("active");
 }
 
-function showProject(id) {
-  var p = PROJECTS.find(function(x) { return x.id === id; });
+window.showProject = function(id) {
+  var p = null;
+  for (var i = 0; i < PROJECTS.length; i++) { if (PROJECTS[i].id === id) { p = PROJECTS[i]; break; } }
   if (!p || !p.featured) return;
   currentProjectId = id;
-  var cat = CATEGORIES.find(function(c) { return c.id === p.category; });
-  document.getElementById("proj-back-cat").textContent = cat ? cat.label : p.category;
+  var catLabel = "";
+  for (var i = 0; i < CATEGORIES.length; i++) { if (CATEGORIES[i].id === p.category) { catLabel = CATEGORIES[i].label; break; } }
+  document.getElementById("proj-back-cat").textContent = catLabel;
   document.getElementById("proj-back-name").textContent = p.title;
-  document.getElementById("proj-label").textContent = p.subcategory + (p.location ? " · " + p.location : "") + " · " + p.year;
+  document.getElementById("proj-label").textContent = p.subcategory + (p.location ? " - " + p.location : "") + " - " + p.year;
   document.getElementById("proj-title").textContent = p.title;
   document.getElementById("proj-desc").textContent = p.description;
+  var metaHTML = "";
   if (p.specs) {
-    document.getElementById("proj-meta").innerHTML = Object.entries(p.specs).map(function(e) {
-      return "<div class=\"meta-cell\"><strong>" + e[0] + "</strong>" + e[1] + "</div>";
-    }).join("");
-  } else {
-    document.getElementById("proj-meta").innerHTML = "";
+    var keys = Object.keys(p.specs);
+    for (var i = 0; i < keys.length; i++) {
+      metaHTML += '<div class="meta-cell"><strong>' + keys[i] + '</strong>' + p.specs[keys[i]] + '</div>';
+    }
   }
-  var featured = PROJECTS.filter(function(x) { return x.featured; });
-  var idx = featured.findIndex(function(x) { return x.id === id; });
-  document.getElementById("proj-body").innerHTML = (p.body || []).map(function(s) {
-    return "<div class=\"body-section\"><div class=\"body-heading\">" + s.heading + "</div><div class=\"body-text\">" +
-      s.text.split("\n\n").map(function(t) { return "<p>" + t + "</p>"; }).join("") + "</div></div>";
-  }).join("");
-  document.getElementById("proj-prev-name").textContent = featured[idx-1] ? featured[idx-1].title : "All Work";
-  document.getElementById("proj-next-name").textContent = featured[idx+1] ? featured[idx+1].title : "All Work";
-  // Hero image
+  document.getElementById("proj-meta").innerHTML = metaHTML;
+  var bodyHTML = "";
+  var sections = p.body || [];
+  for (var i = 0; i < sections.length; i++) {
+    var paras = sections[i].text.split("\n\n");
+    var paraHTML = "";
+    for (var j = 0; j < paras.length; j++) { paraHTML += "<p>" + paras[j] + "</p>"; }
+    bodyHTML += '<div class="body-section"><div class="body-heading">' + sections[i].heading + '</div><div class="body-text">' + paraHTML + '</div></div>';
+  }
+  document.getElementById("proj-body").innerHTML = bodyHTML;
   var heroEl = document.getElementById("proj-img-hero");
-  heroEl.innerHTML = p.heroImage
-    ? "<img src=\"" + p.heroImage + "\" style=\"width:100%;height:100%;object-fit:cover;\" alt=\"" + p.title + "\">"
-    : "<span class=\"img-ph\">Main Image</span>";
-
-  // Detail images
+  if (p.heroImage) {
+    heroEl.innerHTML = '<img src="' + p.heroImage + '" alt="' + p.title + '">';
+  } else {
+    heroEl.innerHTML = '<span class="img-ph">Main Image</span>';
+  }
   var gridEl = document.getElementById("proj-img-grid");
   var imgs = p.images || ["", ""];
-  gridEl.innerHTML = imgs.slice(0,2).map(function(src, i) {
-    return src
-      ? "<div class=\"proj-img-cell\"><img src=\"" + src + "\" style=\"width:100%;height:100%;object-fit:cover;\" alt=\"detail\"></div>"
-      : "<div class=\"proj-img-cell\"><span class=\"img-ph\">Detail 0" + (i+1) + "</span></div>";
-  }).join("");
-
+  var gridHTML = "";
+  for (var i = 0; i < 2; i++) {
+    if (imgs[i]) {
+      gridHTML += '<div class="proj-img-cell"><img src="' + imgs[i] + '" alt="detail ' + (i+1) + '"></div>';
+    } else {
+      gridHTML += '<div class="proj-img-cell"><span class="img-ph">Detail 0' + (i+1) + '</span></div>';
+    }
+  }
+  document.getElementById("proj-img-grid").innerHTML = gridHTML;
+  var featured = [];
+  for (var i = 0; i < PROJECTS.length; i++) { if (PROJECTS[i].featured) featured.push(PROJECTS[i]); }
+  var idx = -1;
+  for (var i = 0; i < featured.length; i++) { if (featured[i].id === id) { idx = i; break; } }
+  document.getElementById("proj-prev-name").textContent = featured[idx-1] ? featured[idx-1].title : "All Work";
+  document.getElementById("proj-next-name").textContent = featured[idx+1] ? featured[idx+1].title : "All Work";
   document.getElementById("proj-scroll").scrollTop = 0;
   document.getElementById("view-index").classList.remove("active");
   document.getElementById("view-project").classList.add("active");
 }
 
-function navProject(dir) {
-  var featured = PROJECTS.filter(function(x) { return x.featured; });
-  var idx = featured.findIndex(function(x) { return x.id === currentProjectId; });
-  var t = featured[idx + dir];
-  if (t) showProject(t.id); else showIndex();
+window.navProject = function(dir) {
+  var featured = [];
+  for (var i = 0; i < PROJECTS.length; i++) { if (PROJECTS[i].featured) featured.push(PROJECTS[i]); }
+  var idx = -1;
+  for (var i = 0; i < featured.length; i++) { if (featured[i].id === currentProjectId) { idx = i; break; } }
+  if (featured[idx + dir]) { showProject(featured[idx + dir].id); } else { showIndex(); }
 }
 
-function scrollToId(id) {
+window.scrollToId = function(id) {
   var el = document.getElementById(id);
   if (el) el.scrollIntoView({ behavior: "smooth" });
 }
 
-function getCounts() {
+window.getCounts = function() {
   var c = { all: PROJECTS.length };
-  CATEGORIES.forEach(function(cat) { if (cat.id !== "all") c[cat.id] = 0; });
-  PROJECTS.forEach(function(p) { if (c[p.category] !== undefined) c[p.category]++; });
+  for (var i = 0; i < CATEGORIES.length; i++) { if (CATEGORIES[i].id !== "all") c[CATEGORIES[i].id] = 0; }
+  for (var i = 0; i < PROJECTS.length; i++) { if (c[PROJECTS[i].category] !== undefined) c[PROJECTS[i].category]++; }
   return c;
 }
 
-function updateSidebarState() {
+window.updateSidebar = function() {
   var counts = getCounts();
-  document.querySelectorAll(".cat-btn").forEach(function(btn) {
-    var match = btn.getAttribute("onclick").match(/setCategory\('([^']+)'\)/);
+  var btns = document.querySelectorAll(".cat-btn");
+  for (var i = 0; i < btns.length; i++) {
+    var onclick = btns[i].getAttribute("onclick");
+    var match = onclick.match(/setCategory\('([^']+)'\)/);
     if (match) {
       var id = match[1];
-      btn.classList.toggle("active", id === activeCategory);
+      if (id === activeCategory) { btns[i].classList.add("active"); } else { btns[i].classList.remove("active"); }
       var countEl = document.getElementById("count-" + id);
       if (countEl) countEl.textContent = counts[id] || 0;
     }
-  });
+  }
 }
 
-function setCategory(id) {
+window.setCategory = function(id) {
   activeCategory = id;
   openId = null;
-  updateSidebarState();
+  updateSidebar();
   renderList();
   var pl = document.getElementById("project-list");
   if (pl) pl.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function toggleExpand(id) {
-  openId = openId === id ? null : id;
+window.toggleExpand = function(id) {
+  openId = (openId === id) ? null : id;
   renderList();
   if (openId) {
     setTimeout(function() {
-      var el = document.querySelector("[data-id=\"" + id + "\"]");
+      var el = document.querySelector('[data-id="' + id + '"]');
       if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }, 50);
   }
 }
 
-function renderList() {
-  var list = activeCategory === "all" ? PROJECTS : PROJECTS.filter(function(p) { return p.category === activeCategory; });
+window.renderList = function() {
+  var list = [];
+  for (var i = 0; i < PROJECTS.length; i++) {
+    if (activeCategory === "all" || PROJECTS[i].category === activeCategory) list.push(PROJECTS[i]);
+  }
   var container = document.getElementById("project-list");
   if (!list.length) {
-    container.innerHTML = "<div style=\"padding:3rem 2.5rem;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint)\">No projects yet.</div>";
+    container.innerHTML = '<div style="padding:3rem 2.5rem;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint)">No projects yet.</div>';
     return;
   }
   var grouped = {};
-  list.forEach(function(p) { if (!grouped[p.category]) grouped[p.category] = []; grouped[p.category].push(p); });
-  var order = activeCategory === "all"
-    ? CATEGORIES.filter(function(c) { return c.id !== "all"; }).map(function(c) { return c.id; })
-    : [activeCategory];
+  for (var i = 0; i < list.length; i++) {
+    if (!grouped[list[i].category]) grouped[list[i].category] = [];
+    grouped[list[i].category].push(list[i]);
+  }
+  var order = [];
+  for (var i = 0; i < CATEGORIES.length; i++) {
+    if (CATEGORIES[i].id !== "all") {
+      if (activeCategory === "all" || CATEGORIES[i].id === activeCategory) order.push(CATEGORIES[i].id);
+    }
+  }
   var html = "";
   var n = 1;
-  order.forEach(function(catId) {
+  for (var oi = 0; oi < order.length; oi++) {
+    var catId = order[oi];
     var items = grouped[catId];
-    if (!items || !items.length) return;
-    var cat = CATEGORIES.find(function(c) { return c.id === catId; });
-    html += "<div class=\"group-header\"><div><div class=\"group-name\">" + cat.label + "</div>" +
-      (cat.note ? "<div class=\"group-sub\">" + cat.note + "</div>" : "") +
-      "</div><span class=\"group-count\">" + items.length + "</span></div>";
-    items.forEach(function(p) {
-      var isOpen = openId === p.id;
-      var tags = (p.tags || []).map(function(t) { return "<span class=\"tag\">" + t + "</span>"; }).join("");
-      var arrow = p.featured ? "→" : (isOpen ? "↑" : "+");
-      var meta = "<div class=\"row-meta\"><span class=\"row-year\">" + p.year + "</span>" +
-        (p.location ? "<span class=\"row-location\">" + p.location + "</span>" : "") +
-        "<span class=\"row-arrow\">" + arrow + "</span></div>";
-      var body = "<div class=\"row-body\"><div class=\"row-title\">" + p.title +
-        "<span class=\"row-badge\">" + p.subcategory + "</span></div>" +
-        "<p class=\"row-desc\">" + p.description + "</p>" +
-        "<div class=\"row-tags\">" + tags + "</div></div>";
-      var num = "<span class=\"row-num\">" + (n < 10 ? "0" + n : n) + "</span>";
+    if (!items || !items.length) continue;
+    var cat = null;
+    for (var i = 0; i < CATEGORIES.length; i++) { if (CATEGORIES[i].id === catId) { cat = CATEGORIES[i]; break; } }
+    html += '<div class="group-header"><div><div class="group-name">' + cat.label + '</div>';
+    if (cat.note) html += '<div class="group-sub">' + cat.note + '</div>';
+    html += '</div><span class="group-count">' + items.length + '</span></div>';
+    for (var ii = 0; ii < items.length; ii++) {
+      var p = items[ii];
+      var isOpen = (openId === p.id);
+      var tags = "";
+      if (p.tags) { for (var t = 0; t < p.tags.length; t++) tags += '<span class="tag">' + p.tags[t] + '</span>'; }
+      var arrow = p.featured ? "\u2192" : (isOpen ? "\u2191" : "+");
+      var num = n < 10 ? "0" + n : "" + n;
+      var rowBody = '<div class="row-body">'
+        + '<div class="row-title">' + p.title + '<span class="row-badge">' + p.subcategory + '</span></div>'
+        + '<p class="row-desc">' + p.description + '</p>'
+        + '<div class="row-tags">' + tags + '</div></div>';
+      var rowMeta = '<div class="row-meta"><span class="row-year">' + p.year + '</span>'
+        + (p.location ? '<span class="row-location">' + p.location + '</span>' : '')
+        + '<span class="row-arrow">' + arrow + '</span></div>';
+      var rowNum = '<span class="row-num">' + num + '</span>';
       if (p.featured) {
-        html += "<div class=\"project-row\" data-id=\"" + p.id + "\"><div class=\"project-row-inner\" onclick=\"showProject('"+p.id+"')\">" + num + body + meta + "</div></div>";
+        html += '<div class="project-row" data-id="' + p.id + '">'
+          + '<div class="project-row-inner" onclick="showProject(\'' + p.id + '\')">'
+          + rowNum + rowBody + rowMeta + '</div></div>';
       } else {
-        html += "<div class=\"project-row " + (isOpen ? "open" : "") + "\" data-id=\"" + p.id + "\">" +
-          "<div class=\"project-row-inner\" onclick
+        html += '<div class="project-row' + (isOpen ? ' open' : '') + '" data-id="' + p.id + '">'
+          + '<div class="project-row-inner" onclick="toggleExpand(\'' + p.id + '\')">'
+          + rowNum + rowBody + rowMeta + '</div>'
+          + '<div class="expand-panel' + (isOpen ? ' open' : '') + '">'
+          + '<div class="expand-inner"><span></span><p class="expand-text">' + p.description + '</p></div></div></div>';
+      }
+      n++;
+    }
+  }
+  container.innerHTML = html;
+}
+
+updateSidebar();
+renderList();
+</script>
+</body>
+</html>
