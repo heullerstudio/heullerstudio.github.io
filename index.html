@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Heuller Studio — Tom Hwang</title>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --white: #f7f6f3; --ink: #111110; --mid: #6b6a68;
+      --faint: #d8d6d2; --orange: #e55a1c;
+      --f: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      --nav: 52px; --side: 210px;
+    }
+    html, body { height: 100%; overflow: hidden; }
+    body { background: var(--white); color: var(--ink); font-family: var(--f); font-size: 13px; font-weight: 300; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    .view { display: none; flex-direction: column; height: 100%; }
+    .view.active { display: flex; }
+    nav { flex-shrink: 0; height: var(--nav); background: var(--white); border-bottom: 1px solid var(--ink); display: grid; grid-template-columns: var(--side) 1fr auto; align-items: stretch; }
+    .nav-brand { display: flex; align-items: center; padding: 0 1.5rem; border-right: 1px solid var(--ink); font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; color: var(--ink); }
+    .nav-person { display: flex; align-items: center; padding: 0 1.5rem; font-size: 11px; color: var(--mid); letter-spacing: 0.04em; }
+    .nav-links { display: flex; list-style: none; }
+    .nav-links li { border-left: 1px solid var(--ink); }
+    .nav-links button { display: flex; align-items: center; padding: 0 1.4rem; height: 100%; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; background: none; border: none; cursor: pointer; color: var(--mid); transition: color 0.15s, background 0.15s; font-family: var(--f); }
+    .nav-links button:hover { color: var(--ink); background: var(--faint); }
+    .layout { display: grid; grid-template-columns: var(--side) 1fr; flex: 1; overflow: hidden; }
+    .sidebar { border-right: 1px solid var(--ink); display: flex; flex-direction: column; overflow-y: auto; }
+    .sidebar-section { padding: 1.2rem; border-bottom: 1px solid var(--faint); }
+    .sidebar-label { font-size: 9px; font-weight: 500; letter-spacing: 0.26em; text-transform: uppercase; color: var(--orange); margin-bottom: 0.8rem; display: block; }
+    .cat-btn { display: flex; flex-direction: column; width: 100%; background: none; border: none; cursor: pointer; padding: 0.55rem 0.6rem; font-family: var(--f); text-align: left; transition: background 0.15s; border-radius: 1px; margin-bottom: 1px; }
+    .cat-btn:hover { background: var(--faint); }
+    .cat-btn.active { background: var(--faint); }
+    .cat-top { display: flex; align-items: center; justify-content: space-between; }
+    .cat-label { font-size: 11px; font-weight: 300; color: var(--mid); transition: color 0.15s; }
+    .cat-btn:hover .cat-label, .cat-btn.active .cat-label { color: var(--ink); font-weight: 500; }
+    .cat-btn.active .cat-label::before { content: '\2192 '; color: var(--orange); }
+    .cat-count { font-size: 10px; color: var(--faint); }
+    .cat-btn.active .cat-count { color: var(--orange); }
+    .cat-note { font-size: 9px; color: var(--faint); letter-spacing: 0.04em; margin-top: 0.15rem; padding-left: 0.1rem; display: none; }
+    .cat-btn.active .cat-note { display: block; color: var(--mid); }
+    .sidebar-bio { padding: 1.2rem; margin-top: auto; border-top: 1px solid var(--faint); }
+    .bio-name { font-size: 11px; font-weight: 500; margin-bottom: 0.3rem; }
+    .bio-roles { font-size: 10px; color: var(--mid); line-height: 1.8; }
+    .bio-contact { margin-top: 0.8rem; font-size: 10px; }
+    .bio-contact a { color: var(--mid); text-decoration: none; }
+    .bio-contact a:hover { color: var(--orange); }
+    .main { overflow-y: auto; }
+    .main-hero { padding: 3rem 2.5rem 2.5rem; border-bottom: 1px solid var(--faint); }
+    .main-hero-title { font-size: clamp(2rem, 4vw, 3.5rem); font-weight: 600; letter-spacing: -0.03em; line-height: 0.9; text-transform: uppercase; margin-bottom: 1rem; }
+    .main-hero-title .sub { display: block; font-weight: 300; color: var(--mid); }
+    .main-hero-desc { font-size: 12px; color: var(--mid); max-width: 480px; line-height: 1.8; }
+    .group-header { display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 0.7rem 2.5rem; border-bottom: 1px solid var(--faint); background: var(--white); position: sticky; top: 0; z-index: 10; }
+    .group-name { font-size: 9px; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase; }
+    .group-sub { font-size: 9px; color: var(--mid); letter-spacing: 0.06em; margin-top: 0.1rem; }
+    .group-count { font-size: 9px; letter-spacing: 0.1em; color: var(--faint); }
+    .project-row { border-bottom: 1px solid var(--faint); }
+    .project-row:last-child { border-bottom: none; }
+    .project-row-inner { display: grid; grid-template-columns: 2.5rem 1fr auto; align-items: start; padding: 1.5rem 2.5rem; cursor: pointer; gap: 1.2rem; transition: background 0.15s; }
+    .project-row-inner:hover, .project-row.open .project-row-inner { background: #f0ede8; }
+    .row-num { font-size: 10px; font-weight: 500; letter-spacing: 0.1em; color: var(--faint); padding-top: 0.15rem; }
+    .row-title { font-size: 0.9rem; font-weight: 500; letter-spacing: -0.01em; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+    .row-badge { font-size: 8px; font-weight: 400; letter-spacing: 0.12em; text-transform: uppercase; color: var(--orange); background: rgba(229,90,28,0.08); padding: 0.1rem 0.4rem; white-space: nowrap; }
+    .row-desc { font-size: 11px; color: var(--mid); line-height: 1.7; max-width: 480px; }
+    .row-tags { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.3rem; }
+    .tag { font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mid); border: 1px solid var(--faint); padding: 0.1rem 0.35rem; }
+    .row-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; padding-top: 0.15rem; }
+    .row-year { font-size: 10px; font-weight: 500; letter-spacing: 0.08em; color: var(--mid); }
+    .row-location { font-size: 9px; color: var(--faint); letter-spacing: 0.06em; }
+    .row-arrow { font-size: 12px; color: var(--orange); margin-top: 0.3rem; opacity: 0; transition: opacity 0.15s, transform 0.15s; transform: translateX(-4px); }
+    .project-row-inner:hover .row-arrow { opacity: 1; transform: translateX(0); }
+    .expand-panel { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
+    .expand-panel.open { max-height: 260px; border-top: 1px solid var(--faint); }
+    .expand-inner { display: grid; grid-template-columns: 2.5rem 1fr; gap: 1.2rem; padding: 1.5rem 2.5rem; background: #ebe8e3; }
+    .expand-text { font-size: 12px; color: var(--mid); line-height: 1.85; }
+    .back-bar { flex-shrink: 0; border-bottom: 1px solid var(--faint); display: grid; grid-template-columns: auto 1fr auto; align-items: center; }
+    .back-btn { padding: 0.85rem 2rem; font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; background: none; border: none; border-right: 1px solid var(--faint); cursor: pointer; color: var(--mid); font-family: var(--f); transition: color 0.15s; }
+    .back-btn:hover { color: var(--ink); }
+    .back-cat { padding: 0.85rem 2rem; font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--orange); }
+    .back-proj { padding: 0.85rem 2rem; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mid); border-left: 1px solid var(--faint); }
+    .proj-scroll { overflow-y: auto; flex: 1; }
+    .proj-hero { border-bottom: 1px solid var(--ink); display: grid; grid-template-columns: 1fr 1fr; min-height: 36vh; }
+    .proj-hero-left { padding: 3.5rem 2.5rem; border-right: 1px solid var(--ink); display: flex; flex-direction: column; justify-content: flex-end; }
+    .proj-hero-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--orange); margin-bottom: 1.2rem; }
+    .proj-hero-title { font-size: clamp(1.8rem, 4.5vw, 3.8rem); font-weight: 600; letter-spacing: -0.03em; line-height: 0.9; text-transform: uppercase; }
+    .proj-hero-right { padding: 3.5rem 2.5rem; display: flex; flex-direction: column; justify-content: flex-end; }
+    .proj-hero-desc { font-size: 1rem; font-weight: 300; line-height: 1.7; max-width: 400px; }
+    .proj-meta { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--ink); }
+    .meta-cell { flex: 1; min-width: 110px; padding: 1.2rem 2rem; border-right: 1px solid var(--faint); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--mid); line-height: 1.8; }
+    .meta-cell:last-child { border-right: none; }
+    .meta-cell strong { display: block; font-size: 10px; font-weight: 500; color: var(--ink); letter-spacing: 0.08em; }
+    .proj-img-hero { width: 100%; aspect-ratio: 16/6; background: #1a1918; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--ink); }
+    .img-ph { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.2); }
+    .proj-body { border-bottom: 1px solid var(--ink); }
+    .body-section { display: grid; grid-template-columns: 160px 1fr 1fr; border-bottom: 1px solid var(--faint); }
+    .body-section:last-child { border-bottom: none; }
+    .body-heading { padding: 2.5rem 2rem; border-right: 1px solid var(--faint); font-size: 9px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--mid); }
+    .body-text { padding: 2.5rem 2rem; grid-column: span 2; font-size: 12.5px; line-height: 1.9; color: var(--mid); }
+    .body-text p { margin-bottom: 1rem; }
+    .body-text p:last-child { margin-bottom: 0; }
+    .proj-img-grid { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--ink); }
+    .proj-img-cell { aspect-ratio: 4/3; background: #1e1d1b; border-right: 1px solid var(--faint); display: flex; align-items: center; justify-content: center; }
+    .proj-img-cell:last-child { border-right: none; }
+    .proj-nav { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--ink); }
+    .proj-nav-btn { padding: 2rem 2.5rem; background: none; border: none; border-right: 1px solid var(--faint); cursor: pointer; display: flex; flex-direction: column; gap: 0.4rem; transition: background 0.2s; text-align: left; font-family: var(--f); }
+    .proj-nav-btn:last-child { border-right: none; text-align: right; align-items: flex-end; }
+    .proj-nav-btn:hover { background: #f0ede8; }
+    .proj-nav-dir { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--orange); }
+    .proj-nav-name { font-size: 0.9rem; font-weight: 500; color: var(--ink); }
+    footer { flex-shrink: 0; border-top: 1px solid var(--ink); display: grid; grid-template-columns: var(--side) 1fr; align-items: center; }
+    .footer-brand { padding: 1rem 1.5rem; font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; border-right: 1px solid var(--faint); }
+    .footer-copy { padding: 1rem 2rem; font-size: 9px; letter-spacing: 0.1em; color: var(--mid); }
+  </style>
+</head>
+<body>
+
+<!-- INDEX VIEW -->
+<div class="view active" id="view-index">
+  <nav>
+    <div class="nav-brand" onclick="showIndex()">Heuller Studio</div>
+    <span class="nav-person">Tom Hwang</span>
+    <ul class="nav-links">
+      <li><button onclick="scrollToId('about-anchor')">About</button></li>
+      <li><button onclick="scrollToId('contact-anchor')">Contact</button></li>
+    </ul>
+  </nav>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <span class="sidebar-label">Categories</span>
+        <div id="cat-buttons">
+          <button class="cat-btn active" onclick="setCategory('all')">
+            <div class="cat-top"><span class="cat-label">All Work</span><span class="cat-count" id="count-all">11</span></div>
+          </button>
+          <button class="cat-btn" onclick="setCategory('unreal')">
+            <div class="cat-top"><span class="cat-label">Unreal Engine</span><span class="cat-count" id="count-unreal">3</span></div>
+            <span class="cat-note">Media Art · Projection Mapping · Interaction</span>
+          </button>
+          <button class="cat-btn" onclick="setCategory('design')">
+            <div class="cat-top"><span class="cat-label">Design Lecture</span><span class="cat-count" id="count-design">3</span></div>
+            <span class="cat-note">Design Studio · Design Research · Publication</span>
+          </button>
+          <button class="cat-btn" onclick="setCategory('ai')">
+            <div class="cat-top"><span class="cat-label">AI Projects</span><span class="cat-count" id="count-ai">3</span></div>
+            <span class="cat-note">Chrome Extension · Automation · Research AI Agent</span>
+          </button>
+          <button class="cat-btn" onclick="setCategory('art')">
+            <div class="cat-top"><span class="cat-label">Conceptual Art</span><span class="cat-count" id="count-art">2</span></div>
+            <span class="cat-note">Non-commercial R&amp;D Projects</span>
+          </button>
+        </div>
+      </div>
+      <div class="sidebar-bio">
+        <p class="bio-name">Tom Hwang</p>
+        <p class="bio-roles">Professor<br>Product Designer<br>Media Artist</p>
+        <p class="bio-contact"><a href="mailto:studio@heuller.com">studio@heuller.com</a></p>
+      </div>
+    </aside>
+    <main class="main" id="main-scroll">
+      <div class="main-hero">
+        <h1 class="main-hero-title">Heuller<span class="sub">Studio</span></h1>
+        <p class="main-hero-desc">Projection mapping, real-time media, interactive systems, design education, and AI-assisted practice. Work across academic, freelance, and independent contexts.</p>
+      </div>
+      <div id="project-list"></div>
+      <div id="about-anchor" style="border-top:1px solid var(--ink);">
+        <div style="padding:0.8rem 2.5rem;border-bottom:1px solid var(--faint);"><span style="font-size:9px;font-weight:500;letter-spacing:0.22em;text-transform:uppercase;">About</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;">
+          <div style="padding:2.5rem;border-right:1px solid var(--faint);font-size:12px;line-height:1.9;color:var(--mid);">
+            <p style="font-size:9px;font-weight:500;letter-spacing:0.22em;text-transform:uppercase;color:var(--orange);margin-bottom:1rem;">Practice</p>
+            <p>Heuller Studio is the practice of <strong style="color:var(--ink);font-weight:500;">Tom Hwang</strong> — product designer, CMF designer, and design educator based in Seoul.</p>
+            <p style="margin-top:1rem;">The work spans real-time media production, physical computing and interactive installation, design education, AI tooling, and independent conceptual projects.</p>
+          </div>
+          <div style="padding:2.5rem;border-right:1px solid var(--faint);font-size:12px;color:var(--mid);">
+            <p style="font-size:9px;font-weight:500;letter-spacing:0.22em;text-transform:uppercase;color:var(--orange);margin-bottom:1rem;">Experience</p>
+            <div style="border-top:1px solid var(--faint);">
+              <div style="padding:0.75rem 0;border-bottom:1px solid var(--faint);"><div style="font-weight:500;color:var(--ink);font-size:11px;">Adjunct Professor, Industrial Design</div><div style="font-size:11px;margin-top:0.1rem;">Hansung University</div></div>
+              <div style="padding:0.75rem 0;border-bottom:1px solid var(--faint);"><div style="font-weight:500;color:var(--ink);font-size:11px;">Adjunct Professor, Industrial Design</div><div style="font-size:11px;margin-top:0.1rem;">Myongji College</div></div>
+              <div style="padding:0.75rem 0;border-bottom:1px solid var(--faint);"><div style="font-weight:500;color:var(--ink);font-size:11px;">CMF Designer</div><div style="font-size:11px;margin-top:0.1rem;">LG Electronics</div></div>
+              <div style="padding:0.75rem 0;"><div style="font-weight:500;color:var(--ink);font-size:11px;">Product Designer</div><div style="font-size:11px;margin-top:0.1rem;">Yupoong</div></div>
+            </div>
+          </div>
+          <div style="padding:2.5rem;font-size:12px;color:var(--mid);">
+            <p style="font-size:9px;font-weight:500;letter-spacing:0.22em;text-transform:uppercase;color:var(--orange);margin-bottom:1rem;">Education</p>
+            <div style="border-top:1px solid var(--faint);">
+              <div style="padding:0.75rem 0;border-bottom:1px solid var(--faint);"><div style="font-weight:500;color:var(--ink);font-size:11px;">ME, Industrial Design</div><div style="font-size:11px;margin-top:0.1rem;">UNIST</div></div>
+              <div style="padding:0.75rem 0;"><div style="font-weight:500;color:var(--ink);font-size:11px;">BA, Industrial Design</div><div style="font-size:11px;margin-top:0.1rem;">Kookmin University</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="contact-anchor" style="border-top:1px solid var(--ink);">
+        <div style="padding:0.8rem 2.5rem;border-bottom:1px solid var(--faint);"><span style="font-size:9px;font-weight:500;letter-spacing:0.22em;text-transform:uppercase;">Contact</span></div>
+        <div style="padding:2.5rem;font-size:12px;color:var(--mid);">
+          <div style="display:grid;grid-template-columns:110px 1fr;padding:0.75rem 0;border-top:1px solid var(--faint);"><span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;">Email</span><span><a href="mailto:studio@heuller.com" style="color:var(--ink);text-decoration:none;">studio@heuller.com</a></span></div>
+          <div style="display:grid;grid-template-columns:110px 1fr;padding:0.75rem 0;border-top:1px solid var(--faint);"><span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;">Location</span><span>Seoul, KR — available globally</span></div>
+          <div style="display:grid;grid-template-columns:110px 1fr;padding:0.75rem 0;border-top:1px solid var(--faint);border-bottom:1px solid var(--faint);"><span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;">Open for</span><span>Commissions, Lectures, Collaborations</span></div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <footer>
+    <span class="footer-brand">Heuller Studio</span>
+    <span class="footer-copy">© 2025 Tom Hwang / Heuller Studio</span>
+  </footer>
+</div>
+
+<!-- PROJECT VIEW -->
+<div class="view" id="view-project">
+  <nav style="grid-template-columns:1fr auto;">
+    <div class="nav-brand" onclick="showIndex()">Heuller Studio</div>
+    <ul class="nav-links"><li><button onclick="showIndex()">← All Work</button></li></ul>
+  </nav>
+  <div class="back-bar">
+    <button class="back-btn" onclick="showIndex()">← All Work</button>
+    <span class="back-cat" id="proj-back-cat"></span>
+    <span class="back-proj" id="proj-back-name"></span>
+  </div>
+  <div class="proj-scroll" id="proj-scroll">
+    <div class="proj-hero">
+      <div class="proj-hero-left">
+        <p class="proj-hero-label" id="proj-label"></p>
+        <h1 class="proj-hero-title" id="proj-title"></h1>
+      </div>
+      <div class="proj-hero-right">
+        <p class="proj-hero-desc" id="proj-desc"></p>
+      </div>
+    </div>
+    <div class="proj-meta" id="proj-meta"></div>
+    <div class="proj-img-hero"><span class="img-ph">Main Image — add heroImage path to project data</span></div>
+    <div class="proj-body" id="proj-body"></div>
+    <div class="proj-img-grid">
+      <div class="proj-img-cell"><span class="img-ph">Detail 01</span></div>
+      <div class="proj-img-cell"><span class="img-ph">Detail 02</span></div>
+    </div>
+    <div class="proj-nav">
+      <button class="proj-nav-btn" id="proj-prev" onclick="navProject(-1)">
+        <span class="proj-nav-dir">← Previous</span>
+        <span class="proj-nav-name" id="proj-prev-name">—</span>
+      </button>
+      <button class="proj-nav-btn" id="proj-next" onclick="navProject(1)">
+        <span class="proj-nav-dir">Next →</span>
+        <span class="proj-nav-name" id="proj-next-name">—</span>
+      </button>
+    </div>
+  </div>
+  <footer style="grid-template-columns:1fr 1fr;">
+    <span class="footer-brand">Heuller Studio</span>
+    <span class="footer-copy">© 2025 Tom Hwang / Heuller Studio</span>
+  </footer>
+</div>
+
+<script>
+// =================================================================
+// PROJECT DATA — edit this section to add your real work
+// featured: true  = clicking opens a full project detail page
+// featured: false = clicking expands an inline description
+// =================================================================
+
+var PROJECTS = [
+
+  // ── UNREAL ENGINE ──────────────────────────────────────────────
+  // subcategory: "Media Art" | "Projection Mapping" | "Interaction"
+  {
+    id: "ue-project-1",
+    title: "[Your UE Project Title]",
+    category: "unreal",
+    subcategory: "Projection Mapping",
+    year: 2024,
+    location: "[City, Country]",
+    tags: ["UE5", "Projection", "Architecture"],
+    description: "[Describe this project in 1-2 sentences. What was it, where, for whom?]",
+    featured: true,
+    heroImage: "",
+    images: ["", ""],
+    specs: { "Type": "[e.g. Architectural Projection]", "Engine": "Unreal Engine 5", "Duration": "[e.g. 12 min]", "Year": "2024", "Location": "[City]" },
+    body: [
+      { heading: "[e.g. Context]", text: "[First paragraph.]\n\n[Second paragraph.]" },
+      { heading: "[e.g. Production]", text: "[How it was made.]\n\n[Tools, scale, outcome.]" }
+    ]
+  },
+  {
+    id: "ue-project-2",
+    title: "[Interaction Project Title]",
+    category: "unreal",
+    subcategory: "Interaction",
+    year: 2024,
+    location: "[City, Country]",
+    tags: ["UE5", "Arduino", "Interactive"],
+    description: "[Describe the interactive work — what triggers it, what it responds to, where shown.]",
+    featured: false
+  },
+  {
+    id: "ue-project-3",
+    title: "[Media Art Title]",
+    category: "unreal",
+    subcategory: "Media Art",
+    year: 2023,
+    location: "[City, Country]",
+    tags: ["UE5", "Real-Time", "Cinematic"],
+    description: "[Describe the media art work — concept, duration, context.]",
+    featured: false
+  },
+
+  // ── DESIGN LECTURE ─────────────────────────────────────────────
+  // subcategory: "Design Studio" | "Design Research" | "Publication"
+  {
+    id: "design-studio-1",
+    title: "[Studio Course Title]",
+    category: "design",
+    subcategory: "Design Studio",
+    year: 2024,
+    location: "[University Name]",
+    tags: ["Product Design", "Studio", "Teaching"],
+    description: "[Describe the studio course — topic, level, number of students, key outcomes.]",
+    featured: true,
+    heroImage: "",
+    images: ["", ""],
+    specs: { "Type": "Design Studio", "Semester": "[e.g. Spring 2024]", "Level": "[e.g. Undergraduate]", "Output": "[e.g. 32 Projects]" },
+    body: [
+      { heading: "Structure", text: "[Course structure — weeks, phases, methods.]\n\n[What do students produce?]" },
+      { heading: "Outcomes", text: "[Notable student work or themes.]\n\n[Exhibition, publication, feedback?]" }
+    ]
+  },
+  {
+    id: "design-research-1",
+    title: "[Research Project Title]",
+    category: "design",
+    subcategory: "Design Research",
+    year: 2024,
+    location: "[University Name]",
+    tags: ["Research", "Teaching", "Methods"],
+    description: "[Describe the research question, methodology, and what it produced.]",
+    featured: false
+  },
+  {
+    id: "design-pub-1",
+    title: "[Publication Title]",
+    category: "design",
+    subcategory: "Publication",
+    year: 2023,
+    location: "",
+    tags: ["Publication", "Writing"],
+    description: "[Describe the publication — format, subject, edition size, distribution.]",
+    featured: false
+  },
+
+  // ── AI PROJECTS ────────────────────────────────────────────────
+  // subcategory: "Chrome Extension" | "Automation" | "Research AI Agent"
+  {
+    id: "ai-agent-1",
+    title: "[AI Agent / Tool Title]",
+    category: "ai",
+    subcategory: "Research AI Agent",
+    year: 2025,
+    location: "",
+    tags: ["AI Agent", "Python", "LLM"],
+    description: "[Describe what the AI tool does, what problem it solves, who uses it.]",
+    featured: true,
+    heroImage: "",
+    images: ["", ""],
+    specs: { "Type": "Research AI Agent", "Stack": "[e.g. Python + LLM API]", "Context": "[e.g. Studio & Teaching]", "Year": "2025" },
+    body: [
+      { heading: "Problem", text: "[What repetitive or complex task does this address?]\n\n[Why was existing tooling insufficient?]" },
+      { heading: "Implementation", text: "[How was it built? Stack, interface, workflow.]\n\n[Who uses it and in what context?]" }
+    ]
+  },
+  {
+    id: "ai-auto-1",
+    title: "[Automation Tool Title]",
+    category: "ai",
+    subcategory: "Automation",
+    year: 2024,
+    location: "",
+    tags: ["Python", "Automation", "Workflow"],
+    description: "[Describe what the automation does — inputs, outputs, time saved.]",
+    featured: false
+  },
+  {
+    id: "ai-ext-1",
+    title: "[Chrome Extension Title]",
+    category: "ai",
+    subcategory: "Chrome Extension",
+    year: 2024,
+    location: "",
+    tags: ["Chrome", "JavaScript", "Extension"],
+    description: "[Describe what the extension does and why you built it.]",
+    featured: false
+  },
+
+  // ── CONCEPTUAL ART ─────────────────────────────────────────────
+  // subcategory: any label, e.g. "R&D" "Installation" "Objects"
+  {
+    id: "art-project-1",
+    title: "[Conceptual Project Title]",
+    category: "art",
+    subcategory: "R&D",
+    year: 2024,
+    location: "[City, Country]",
+    tags: ["Non-Commercial", "Research", "Independent"],
+    description: "[What question does it ask? What form does it take? Where shown or documented?]",
+    featured: true,
+    heroImage: "",
+    images: ["", ""],
+    specs: { "Type": "Independent R&D", "Status": "[Ongoing / Complete]", "Context": "Non-Commercial", "Year": "2024" },
+    body: [
+      { heading: "Premise", text: "[Core idea or question this work explores.]\n\n[Why outside a client brief?]" },
+      { heading: "Process", text: "[How is the work produced?]\n\n[How does it feed back into other practice?]" }
+    ]
+  },
+  {
+    id: "art-project-2",
+    title: "[Second Conceptual Project]",
+    category: "art",
+    subcategory: "R&D",
+    year: 2023,
+    location: "",
+    tags: ["Non-Commercial", "Independent"],
+    description: "[Brief description of this non-commercial or experimental project.]",
+    featured: false
+  }
+
+];
+
+var CATEGORIES = [
+  { id: "all",    label: "All Work",       note: "" },
+  { id: "unreal", label: "Unreal Engine",  note: "Media Art · Projection Mapping · Interaction" },
+  { id: "design", label: "Design Lecture", note: "Design Studio · Design Research · Publication" },
+  { id: "ai",     label: "AI Projects",    note: "Chrome Extension · Automation · Research AI Agent" },
+  { id: "art",    label: "Conceptual Art", note: "Non-commercial R&D Projects" }
+];
+
+var activeCategory = "all";
+var openId = null;
+var currentProjectId = null;
+
+function showIndex() {
+  document.getElementById("view-index").classList.add("active");
+  document.getElementById("view-project").classList.remove("active");
+}
+
+function showProject(id) {
+  var p = PROJECTS.find(function(x) { return x.id === id; });
+  if (!p || !p.featured) return;
+  currentProjectId = id;
+  var cat = CATEGORIES.find(function(c) { return c.id === p.category; });
+  document.getElementById("proj-back-cat").textContent = cat ? cat.label : p.category;
+  document.getElementById("proj-back-name").textContent = p.title;
+  document.getElementById("proj-label").textContent = p.subcategory + (p.location ? " · " + p.location : "") + " · " + p.year;
+  document.getElementById("proj-title").textContent = p.title;
+  document.getElementById("proj-desc").textContent = p.description;
+  if (p.specs) {
+    document.getElementById("proj-meta").innerHTML = Object.entries(p.specs).map(function(e) {
+      return "<div class=\"meta-cell\"><strong>" + e[0] + "</strong>" + e[1] + "</div>";
+    }).join("");
+  } else {
+    document.getElementById("proj-meta").innerHTML = "";
+  }
+  var featured = PROJECTS.filter(function(x) { return x.featured; });
+  var idx = featured.findIndex(function(x) { return x.id === id; });
+  document.getElementById("proj-body").innerHTML = (p.body || []).map(function(s) {
+    return "<div class=\"body-section\"><div class=\"body-heading\">" + s.heading + "</div><div class=\"body-text\">" +
+      s.text.split("\n\n").map(function(t) { return "<p>" + t + "</p>"; }).join("") + "</div></div>";
+  }).join("");
+  document.getElementById("proj-prev-name").textContent = featured[idx-1] ? featured[idx-1].title : "All Work";
+  document.getElementById("proj-next-name").textContent = featured[idx+1] ? featured[idx+1].title : "All Work";
+  document.getElementById("proj-scroll").scrollTop = 0;
+  document.getElementById("view-index").classList.remove("active");
+  document.getElementById("view-project").classList.add("active");
+}
+
+function navProject(dir) {
+  var featured = PROJECTS.filter(function(x) { return x.featured; });
+  var idx = featured.findIndex(function(x) { return x.id === currentProjectId; });
+  var t = featured[idx + dir];
+  if (t) showProject(t.id); else showIndex();
+}
+
+function scrollToId(id) {
+  var el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: "smooth" });
+}
+
+function getCounts() {
+  var c = { all: PROJECTS.length };
+  CATEGORIES.forEach(function(cat) { if (cat.id !== "all") c[cat.id] = 0; });
+  PROJECTS.forEach(function(p) { if (c[p.category] !== undefined) c[p.category]++; });
+  return c;
+}
+
+function updateSidebarState() {
+  var counts = getCounts();
+  document.querySelectorAll(".cat-btn").forEach(function(btn) {
+    var match = btn.getAttribute("onclick").match(/setCategory\('([^']+)'\)/);
+    if (match) {
+      var id = match[1];
+      btn.classList.toggle("active", id === activeCategory);
+      var countEl = document.getElementById("count-" + id);
+      if (countEl) countEl.textContent = counts[id] || 0;
+    }
+  });
+}
+
+function setCategory(id) {
+  activeCategory = id;
+  openId = null;
+  updateSidebarState();
+  renderList();
+  var pl = document.getElementById("project-list");
+  if (pl) pl.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function toggleExpand(id) {
+  openId = openId === id ? null : id;
+  renderList();
+  if (openId) {
+    setTimeout(function() {
+      var el = document.querySelector("[data-id=\"" + id + "\"]");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 50);
+  }
+}
+
+function renderList() {
+  var list = activeCategory === "all" ? PROJECTS : PROJECTS.filter(function(p) { return p.category === activeCategory; });
+  var container = document.getElementById("project-list");
+  if (!list.length) {
+    container.innerHTML = "<div style=\"padding:3rem 2.5rem;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint)\">No projects yet.</div>";
+    return;
+  }
+  var grouped = {};
+  list.forEach(function(p) { if (!grouped[p.category]) grouped[p.category] = []; grouped[p.category].push(p); });
+  var order = activeCategory === "all"
+    ? CATEGORIES.filter(function(c) { return c.id !== "all"; }).map(function(c) { return c.id; })
+    : [activeCategory];
+  var html = "";
+  var n = 1;
+  order.forEach(function(catId) {
+    var items = grouped[catId];
+    if (!items || !items.length) return;
+    var cat = CATEGORIES.find(function(c) { return c.id === catId; });
+    html += "<div class=\"group-header\"><div><div class=\"group-name\">" + cat.label + "</div>" +
+      (cat.note ? "<div class=\"group-sub\">" + cat.note + "</div>" : "") +
+      "</div><span class=\"group-count\">" + items.length + "</span></div>";
+    items.forEach(function(p) {
+      var isOpen = openId === p.id;
+      var tags = (p.tags || []).map(function(t) { return "<span class=\"tag\">" + t + "</span>"; }).join("");
+      var arrow = p.featured ? "→" : (isOpen ? "↑" : "+");
+      var meta = "<div class=\"row-meta\"><span class=\"row-year\">" + p.year + "</span>" +
+        (p.location ? "<span class=\"row-location\">" + p.location + "</span>" : "") +
+        "<span class=\"row-arrow\">" + arrow + "</span></div>";
+      var body = "<div class=\"row-body\"><div class=\"row-title\">" + p.title +
+        "<span class=\"row-badge\">" + p.subcategory + "</span></div>" +
+        "<p class=\"row-desc\">" + p.description + "</p>" +
+        "<div class=\"row-tags\">" + tags + "</div></div>";
+      var num = "<span class=\"row-num\">" + (n < 10 ? "0" + n : n) + "</span>";
+      if (p.featured) {
+        html += "<div class=\"project-row\" data-id=\"" + p.id + "\"><div class=\"project-row-inner\" onclick=\"showProject('"+p.id+"')\">" + num + body + meta + "</div></div>";
+      } else {
+        html += "<div class=\"project-row " + (isOpen ? "open" : "") + "\" data-id=\"" + p.id + "\">" +
+          "<div class=\"project-row-inner\" onclick=\"toggleExpand('"+p.id+"')\">" + num + body + meta + "</div>" +
+          "<div class=\"expand-panel " + (isOpen ? "open" : "") + "\"><div class=\"expand-inner\"><span></span><p class=\"expand-text\">" + p.description + "</p></div></div></div>";
+      }
+      n++;
+    });
+  });
+  container.innerHTML = html;
+}
+
+updateSidebarState();
+renderList();
+</script>
+</body>
+</html>
