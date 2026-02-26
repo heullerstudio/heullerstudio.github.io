@@ -153,7 +153,7 @@
       <div class="sidebar-bio">
         <p class="bio-name">Tom Hwang</p>
         <p class="bio-roles">Professor<br>Product Designer<br>Media Artist</p>
-        <p class="bio-contact"><a href="mailto:studio@heuller.com">studio [at] heuller.com</a></p>
+        <p class="bio-contact"><a href="/cdn-cgi/l/email-protection#deadaaabbab7b19eb6bbabb2b2bbacf0bdb1b3"><span class="__cf_email__" data-cfemail="added9d8c9c4c2edc5c8d8c1c1c8df83cec2c0">[email&#160;protected]</span></a></p>
       </div>
     </aside>
     <main class="main" id="main-scroll">
@@ -191,7 +191,7 @@
       <div id="contact-anchor" style="border-top:1px solid var(--ink);">
         <div style="padding:0.8rem 2.5rem;border-bottom:1px solid var(--faint);"><span style="font-size:9px;font-weight:500;letter-spacing:0.22em;text-transform:uppercase;">Contact</span></div>
         <div style="padding:2.5rem;font-size:12px;color:var(--mid);">
-          <div style="display:grid;grid-template-columns:110px 1fr;padding:0.75rem 0;border-top:1px solid var(--faint);"><span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;">Email</span><span><a href="mailto:studio@heuller.com" style="color:var(--ink);text-decoration:none;">studio@heuller.com</a></span></div>
+          <div style="display:grid;grid-template-columns:110px 1fr;padding:0.75rem 0;border-top:1px solid var(--faint);"><span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;">Email</span><span><a href="/cdn-cgi/l/email-protection#2152555445484e614944544d4d44530f424e4c" style="color:var(--ink);text-decoration:none;"><span class="__cf_email__" data-cfemail="c9babdbcada0a689a1acbca5a5acbbe7aaa6a4">[email&#160;protected]</span></a></span></div>
           <div style="display:grid;grid-template-columns:110px 1fr;padding:0.75rem 0;border-top:1px solid var(--faint);"><span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;">Location</span><span>Seoul, KR — available globally</span></div>
           <div style="display:grid;grid-template-columns:110px 1fr;padding:0.75rem 0;border-top:1px solid var(--faint);border-bottom:1px solid var(--faint);"><span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;">Open for</span><span>Commissions, Lectures, Collaborations</span></div>
         </div>
@@ -226,9 +226,9 @@
       </div>
     </div>
     <div class="proj-meta" id="proj-meta"></div>
-    <div class="proj-img-hero"><span class="img-ph">Main Image — add heroImage path to project data</span></div>
+    <div class="proj-img-hero" id="proj-img-hero"><span class="img-ph">Main Image — add heroImage path to project data</span></div>
     <div class="proj-body" id="proj-body"></div>
-    <div class="proj-img-grid">
+    <div class="proj-img-grid" id="proj-img-grid">
       <div class="proj-img-cell"><span class="img-ph">Detail 01</span></div>
       <div class="proj-img-cell"><span class="img-ph">Detail 02</span></div>
     </div>
@@ -249,7 +249,7 @@
   </footer>
 </div>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // =================================================================
 // PROJECT DATA — edit this section to add your real work
 // featured: true  = clicking opens a full project detail page
@@ -262,17 +262,17 @@ var PROJECTS = [
   // subcategory: "Media Art" | "Projection Mapping" | "Interaction"
   {
     id: "ue-project-1",
-    title: "[museum HEI project]",
+    title: "[Your UE Project Title]",
     category: "unreal",
-    subcategory: "Projection Media Art",
-    year: 2025,
-    location: "[Paju, South Korea]",
-    tags: ["UE5", "Projection", "Media Art"],
-    description: "[Media art project for museum HEI]",
+    subcategory: "Projection Mapping",
+    year: 2024,
+    location: "[City, Country]",
+    tags: ["UE5", "Projection", "Architecture"],
+    description: "[Describe this project in 1-2 sentences. What was it, where, for whom?]",
     featured: true,
-    heroImage: "img/test02.png",
+    heroImage: "",
     images: ["", ""],
-    specs: { "Type": "[Projection Media Art]", "Engine": "Unreal Engine 5", "Duration": "[1 min]", "Year": "2025", "Location": "[Paju]" },
+    specs: { "Type": "[e.g. Architectural Projection]", "Engine": "Unreal Engine 5", "Duration": "[e.g. 12 min]", "Year": "2024", "Location": "[City]" },
     body: [
       { heading: "[e.g. Context]", text: "[First paragraph.]\n\n[Second paragraph.]" },
       { heading: "[e.g. Production]", text: "[How it was made.]\n\n[Tools, scale, outcome.]" }
@@ -463,6 +463,21 @@ function showProject(id) {
   }).join("");
   document.getElementById("proj-prev-name").textContent = featured[idx-1] ? featured[idx-1].title : "All Work";
   document.getElementById("proj-next-name").textContent = featured[idx+1] ? featured[idx+1].title : "All Work";
+  // Hero image
+  var heroEl = document.getElementById("proj-img-hero");
+  heroEl.innerHTML = p.heroImage
+    ? "<img src=\"" + p.heroImage + "\" style=\"width:100%;height:100%;object-fit:cover;\" alt=\"" + p.title + "\">"
+    : "<span class=\"img-ph\">Main Image</span>";
+
+  // Detail images
+  var gridEl = document.getElementById("proj-img-grid");
+  var imgs = p.images || ["", ""];
+  gridEl.innerHTML = imgs.slice(0,2).map(function(src, i) {
+    return src
+      ? "<div class=\"proj-img-cell\"><img src=\"" + src + "\" style=\"width:100%;height:100%;object-fit:cover;\" alt=\"detail\"></div>"
+      : "<div class=\"proj-img-cell\"><span class=\"img-ph\">Detail 0" + (i+1) + "</span></div>";
+  }).join("");
+
   document.getElementById("proj-scroll").scrollTop = 0;
   document.getElementById("view-index").classList.remove("active");
   document.getElementById("view-project").classList.add("active");
@@ -557,17 +572,4 @@ function renderList() {
         html += "<div class=\"project-row\" data-id=\"" + p.id + "\"><div class=\"project-row-inner\" onclick=\"showProject('"+p.id+"')\">" + num + body + meta + "</div></div>";
       } else {
         html += "<div class=\"project-row " + (isOpen ? "open" : "") + "\" data-id=\"" + p.id + "\">" +
-          "<div class=\"project-row-inner\" onclick=\"toggleExpand('"+p.id+"')\">" + num + body + meta + "</div>" +
-          "<div class=\"expand-panel " + (isOpen ? "open" : "") + "\"><div class=\"expand-inner\"><span></span><p class=\"expand-text\">" + p.description + "</p></div></div></div>";
-      }
-      n++;
-    });
-  });
-  container.innerHTML = html;
-}
-
-updateSidebarState();
-renderList();
-</script>
-</body>
-</html>
+          "<div class=\"project-row-inner\" onclick
