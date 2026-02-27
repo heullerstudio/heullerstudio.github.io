@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Audio Form — Heuller Studio</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --white: #f7f6f3;
+      --ink: #111110;
+      --mid: #6b6a68;
+      --faint: #d8d6d2;
+      --orange: #e55a1c;
+      --f: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    }
+    @import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500&display=swap');
+
+    html, body {
+      height: 100%;
+      background: var(--ink);
+      color: var(--white);
+      font-family: var(--f);
+      font-size: 12px;
+      font-weight: 300;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 48px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: stretch;
+      border-bottom: 1px solid rgba(247,246,243,0.12);
+      z-index: 100;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      padding: 0 1.5rem;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(247,246,243,0.4);
+    }
+    .nav-brand a {
+      color: inherit;
+      text-decoration: none;
+    }
+    .nav-brand span {
+      color: rgba(247,246,243,0.15);
+      margin: 0 0.6rem;
+    }
+    .nav-title {
+      color: rgba(247,246,243,0.9);
+    }
+
+    /* CANVAS */
+    canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+    }
+
+    /* BOTTOM UI */
+    .ui {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 60px;
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      align-items: stretch;
+      border-top: 1px solid rgba(247,246,243,0.12);
+      z-index: 100;
+    }
+    .ui-cell {
+      display: flex;
+      align-items: center;
+      padding: 0 1.5rem;
+      border-right: 1px solid rgba(247,246,243,0.08);
+      gap: 0.8rem;
+    }
+    .ui-cell:last-child { border-right: none; }
+    .ui-label {
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(247,246,243,0.3);
+    }
+    .ui-value {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      color: rgba(247,246,243,0.8);
+      min-width: 3ch;
+    }
+
+    /* MIC BUTTON */
+    .mic-btn {
+      background: none;
+      border: 1px solid rgba(247,246,243,0.2);
+      color: rgba(247,246,243,0.6);
+      font-family: var(--f);
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      padding: 0 1.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .mic-btn:hover {
+      border-color: rgba(247,246,243,0.5);
+      color: var(--white);
+    }
+    .mic-btn.active {
+      border-color: var(--orange);
+      color: var(--orange);
+    }
+    .mic-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+    .mic-btn.active .mic-dot {
+      animation: pulse 1s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.6); }
+    }
+
+    /* MODE BUTTONS */
+    .mode-btns {
+      display: flex;
+      align-items: center;
+      padding: 0 1.5rem;
+      gap: 0.5rem;
+      border-right: 1px solid rgba(247,246,243,0.08);
+    }
+    .mode-btn {
+      background: none;
+      border: 1px solid rgba(247,246,243,0.1);
+      color: rgba(247,246,243,0.3);
+      font-family: var(--f);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0.3rem 0.8rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .mode-btn:hover { color: rgba(247,246,243,0.7); border-color: rgba(247,246,243,0.3); }
+    .mode-btn.active { border-color: var(--orange); color: var(--orange); }
+
+    /* VU METER */
+    .vu {
+      display: flex;
+      align-items: center;
+      padding: 0 1.5rem;
+      gap: 2px;
+    }
+    .vu-bar {
+      width: 3px;
+      height: 24px;
+      background: rgba(247,246,243,0.06);
+      border-radius: 1px;
+      position: relative;
+      overflow: hidden;
+    }
+    .vu-fill {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: var(--orange);
+      transition: height 0.05s;
+      border-radius: 1px;
+    }
+
+    .source-btns {
+      display: flex;
+      align-items: center;
+      padding: 0 1rem;
+      gap: 0.4rem;
+      border-right: 1px solid rgba(247,246,243,0.08);
+      flex-shrink: 0;
+    }
+    .source-btn {
+      background: none;
+      border: 1px solid rgba(247,246,243,0.1);
+      color: rgba(247,246,243,0.3);
+      font-family: var(--f);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0.3rem 0.7rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .source-btn:hover { color: rgba(247,246,243,0.7); border-color: rgba(247,246,243,0.3); }
+    .source-btn.active { border-color: var(--orange); color: var(--orange); }
+    .source-panel {
+      display: flex;
+      align-items: center;
+      padding: 0 1rem;
+      gap: 0.6rem;
+      border-right: 1px solid rgba(247,246,243,0.08);
+      flex-shrink: 0;
+    }
+    .file-label {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      cursor: pointer;
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(247,246,243,0.4);
+      border: 1px solid rgba(247,246,243,0.15);
+      padding: 0 1.2rem;
+      height: 36px;
+      transition: all 0.15s;
+    }
+    .file-label:hover { color: rgba(247,246,243,0.8); border-color: rgba(247,246,243,0.4); }
+    .file-label.loaded { border-color: var(--orange); color: var(--orange); }
+    .play-btn {
+      background: none;
+      border: 1px solid rgba(247,246,243,0.2);
+      color: rgba(247,246,243,0.6);
+      font-family: var(--f);
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 0 1rem;
+      height: 36px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .play-btn:hover { border-color: var(--orange); color: var(--orange); }
+    .play-btn.playing { border-color: var(--orange); color: var(--orange); }
+    .url-input {
+      background: none;
+      border: 1px solid rgba(247,246,243,0.1);
+      color: rgba(247,246,243,0.7);
+      font-family: var(--f);
+      font-size: 9px;
+      letter-spacing: 0.06em;
+      padding: 0 0.8rem;
+      height: 36px;
+      width: 240px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .url-input:focus { border-color: rgba(247,246,243,0.4); }
+    .url-input::placeholder { color: rgba(247,246,243,0.2); }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <a href="index.html">Heuller Studio</a>
+    <span>/</span>
+    <span class="nav-title">Audio Form</span>
+  </div>
+</nav>
+
+<canvas id="c"></canvas>
+
+<div class="ui">
+  <div class="source-btns">
+    <button class="source-btn active" id="src-mic" onclick="selectSource('mic')">Mic</button>
+    <button class="source-btn" id="src-file" onclick="selectSource('file')">File</button>
+    <button class="source-btn" id="src-url" onclick="selectSource('url')">URL</button>
+    <button class="source-btn" id="src-tab" onclick="selectSource('tab')">Tab</button>
+  </div>
+
+  <div class="source-panel" id="panel-mic">
+    <button class="mic-btn" id="micBtn" onclick="toggleMic()">
+      <span class="mic-dot"></span>
+      <span id="micLabel">Enable Mic</span>
+    </button>
+  </div>
+
+  <div class="source-panel" id="panel-file" style="display:none;">
+    <label class="file-label" id="fileLabel">
+      <input type="file" id="fileInput" accept="audio/*" onchange="loadFile(this)" style="display:none;">
+      <span class="mic-dot" id="fileDot"></span>
+      <span id="fileNameDisplay">Drop audio file</span>
+    </label>
+    <button class="play-btn" id="playBtn" onclick="togglePlay()" style="display:none;">Play</button>
+  </div>
+
+  <div class="source-panel" id="panel-url" style="display:none;">
+    <input class="url-input" id="urlInput" type="text" placeholder="https://... audio URL" />
+    <button class="mic-btn" onclick="loadUrl()">
+      <span class="mic-dot" id="urlDot"></span>
+      <span>Load</span>
+    </button>
+    <button class="play-btn" id="urlPlayBtn" onclick="toggleUrlPlay()" style="display:none;">Play</button>
+  </div>
+
+  <div class="source-panel" id="panel-tab" style="display:none;">
+    <button class="mic-btn" id="tabBtn" onclick="toggleTab()">
+      <span class="mic-dot" id="tabDot"></span>
+      <span id="tabLabel">Share Tab Audio</span>
+    </button>
+  </div>
+
+  <div class="mode-btns">
+    <button class="mode-btn active" onclick="setMode('blob')" id="mode-blob">Blob</button>
+    <button class="mode-btn" onclick="setMode('grid')" id="mode-grid">Grid</button>
+    <button class="mode-btn" onclick="setMode('ring')" id="mode-ring">Ring</button>
+    <button class="mode-btn" onclick="setMode('wave')" id="mode-wave">Wave</button>
+  </div>
+
+  <div class="vu" id="vuMeter"></div>
+
+  <div class="ui-cell">
+    <span class="ui-label">Volume</span>
+    <span class="ui-value" id="volDisplay">—</span>
+  </div>
+  <div class="ui-cell">
+    <span class="ui-label">Peak</span>
+    <span class="ui-value" id="peakDisplay">—</span>
+  </div>
+</div>
+
+<script>
+var canvas = document.getElementById('c');
+var ctx = canvas.getContext('2d');
+var W, H, cx, cy;
+
+var audioCtx, analyser, dataArray, source;
+var micActive = false;
+var fileAudio = null, fileSource = null, fileActive = false;
+var urlAudio = null, urlSource = null, urlActive = false;
+var tabStream = null, tabSource = null, tabActive = false;
+var currentSource = 'mic';
+var volume = 0;
+var smoothVol = 0;
+var peak = 0;
+var peakDecay = 0;
+var mode = 'blob';
+var frame = 0;
+
+// Build VU meter
+var vuMeter = document.getElementById('vuMeter');
+var vuBars = [];
+for (var i = 0; i < 20; i++) {
+  var bar = document.createElement('div');
+  bar.className = 'vu-bar';
+  var fill = document.createElement('div');
+  fill.className = 'vu-fill';
+  bar.appendChild(fill);
+  vuMeter.appendChild(bar);
+  vuBars.push(fill);
+}
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2;
+  cy = H / 2;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function toggleMic() {
+  if (micActive) {
+    stopMic();
+  } else {
+    startMic();
+  }
+}
+
+function startMic() {
+  navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    .then(function(stream) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.8;
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      source = audioCtx.createMediaStreamSource(stream);
+      source.connect(analyser);
+      micActive = true;
+      document.getElementById('micBtn').classList.add('active');
+      document.getElementById('micLabel').textContent = 'Mic On';
+    })
+    .catch(function(err) {
+      alert('Microphone access denied. Please allow mic access and try again.');
+    });
+}
+
+function stopMic() {
+  if (source) source.disconnect();
+  if (audioCtx) audioCtx.close();
+  micActive = false;
+  volume = 0;
+  smoothVol = 0;
+  document.getElementById('micBtn').classList.remove('active');
+  document.getElementById('micLabel').textContent = 'Enable Mic';
+  document.getElementById('volDisplay').textContent = '—';
+  document.getElementById('peakDisplay').textContent = '—';
+}
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('mode-' + m).classList.add('active');
+}
+
+function getVolume() {
+  if (!analyser) return 0;
+  analyser.getByteFrequencyData(dataArray);
+  var sum = 0;
+  for (var i = 0; i < dataArray.length; i++) sum += dataArray[i];
+  return sum / dataArray.length / 255;
+}
+
+function updateVU(vol) {
+  var filled = Math.round(vol * vuBars.length);
+  for (var i = 0; i < vuBars.length; i++) {
+    var pct = i < filled ? Math.min(100, 30 + (i / vuBars.length) * 100) : 0;
+    vuBars[i].style.height = pct + '%';
+    var hue = i < filled * 0.6 ? 'var(--orange)' : (i < filled ? '#f0a070' : 'rgba(247,246,243,0.06)');
+    vuBars[i].style.background = hue;
+  }
+}
+
+function selectSource(src) {
+  currentSource = src;
+  document.querySelectorAll('.source-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('src-' + src).classList.add('active');
+  document.querySelectorAll('.source-panel').forEach(function(p) { p.style.display = 'none'; });
+  document.getElementById('panel-' + src).style.display = 'flex';
+}
+
+function loadFile(input) {
+  if (!input.files.length) return;
+  var file = input.files[0];
+  document.getElementById('fileNameDisplay').textContent = file.name.length > 20 ? file.name.substring(0,18)+'...' : file.name;
+  document.getElementById('fileLabel').classList.add('loaded');
+  document.getElementById('fileDot').style.background = 'var(--orange)';
+
+  if (fileAudio) { fileAudio.pause(); fileAudio.src = ''; }
+  fileAudio = new Audio();
+  fileAudio.src = URL.createObjectURL(file);
+  fileAudio.loop = true;
+  document.getElementById('playBtn').style.display = 'flex';
+  document.getElementById('playBtn').textContent = 'Play';
+  fileActive = false;
+}
+
+function togglePlay() {
+  if (!fileAudio) return;
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.8;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (!fileSource) {
+    fileSource = audioCtx.createMediaElementSource(fileAudio);
+    fileSource.connect(analyser);
+    analyser.connect(audioCtx.destination);
+  }
+  if (fileActive) {
+    fileAudio.pause();
+    fileActive = false;
+    document.getElementById('playBtn').textContent = 'Play';
+    document.getElementById('playBtn').classList.remove('playing');
+  } else {
+    fileAudio.play();
+    fileActive = true;
+    document.getElementById('playBtn').textContent = 'Pause';
+    document.getElementById('playBtn').classList.add('playing');
+    micActive = true; // reuse mic flag to enable volume reading
+  }
+}
+
+function loadUrl() {
+  var url = document.getElementById('urlInput').value.trim();
+  if (!url) return;
+  if (urlAudio) { urlAudio.pause(); urlAudio.src = ''; urlSource = null; }
+  urlAudio = new Audio();
+  urlAudio.crossOrigin = 'anonymous';
+  urlAudio.src = url;
+  urlAudio.loop = true;
+  document.getElementById('urlPlayBtn').style.display = 'flex';
+  document.getElementById('urlPlayBtn').textContent = 'Play';
+  document.getElementById('urlDot').style.background = 'var(--orange)';
+  urlActive = false;
+}
+
+function toggleTab() {
+  if (tabActive) {
+    stopTab();
+    return;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+    alert('Tab capture not supported in this browser. Use Chrome or Edge.');
+    return;
+  }
+  navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
+    .then(function(stream) {
+      var audioTracks = stream.getAudioTracks();
+      if (!audioTracks.length) {
+        alert('No audio detected. Make sure to tick "Share tab audio" in the dialog.');
+        stream.getTracks().forEach(function(t) { t.stop(); });
+        return;
+      }
+      tabStream = stream;
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.8;
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      tabSource = audioCtx.createMediaStreamSource(stream);
+      tabSource.connect(analyser);
+      tabActive = true;
+      micActive = true;
+      document.getElementById('tabBtn').classList.add('active');
+      document.getElementById('tabDot').style.background = 'var(--orange)';
+      document.getElementById('tabLabel').textContent = 'Stop';
+      // stop video tracks — we only need audio
+      stream.getVideoTracks().forEach(function(t) { t.stop(); });
+    })
+    .catch(function(err) {
+      if (err.name !== 'NotAllowedError') {
+        alert('Could not capture tab audio: ' + err.message);
+      }
+    });
+}
+
+function stopTab() {
+  if (tabStream) {
+    tabStream.getTracks().forEach(function(t) { t.stop(); });
+    tabStream = null;
+  }
+  if (tabSource) { tabSource.disconnect(); tabSource = null; }
+  tabActive = false;
+  micActive = false;
+  document.getElementById('tabBtn').classList.remove('active');
+  document.getElementById('tabDot').style.background = '';
+  document.getElementById('tabLabel').textContent = 'Share Tab Audio';
+}
+
+
+function toggleUrlPlay() {
+  if (!urlAudio) return;
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.8;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (!urlSource) {
+    urlSource = audioCtx.createMediaElementSource(urlAudio);
+    urlSource.connect(analyser);
+    analyser.connect(audioCtx.destination);
+  }
+  if (urlActive) {
+    urlAudio.pause();
+    urlActive = false;
+    document.getElementById('urlPlayBtn').textContent = 'Play';
+    document.getElementById('urlPlayBtn').classList.remove('playing');
+    micActive = false;
+  } else {
+    urlAudio.play().catch(function(e) { alert('Could not load URL. Check CORS or try a different source.'); });
+    urlActive = true;
+    document.getElementById('urlPlayBtn').textContent = 'Pause';
+    document.getElementById('urlPlayBtn').classList.add('playing');
+    micActive = true;
+  }
+}
+
+
+// ── DRAW MODES ──────────────────────────────────────────────────
+
+function drawBlob(vol) {
+  var pts = 120;
+  var baseR = Math.min(W, H) * 0.22;
+  var amp = baseR * 0.6 * vol;
+  var t = frame * 0.008;
+
+  ctx.beginPath();
+  for (var i = 0; i <= pts; i++) {
+    var angle = (i / pts) * Math.PI * 2;
+    var n = 0;
+    // layered noise-like displacement
+    n += Math.sin(angle * 3 + t * 1.2) * 0.4;
+    n += Math.sin(angle * 5 - t * 0.8) * 0.3;
+    n += Math.sin(angle * 7 + t * 2.1) * 0.2;
+    n += Math.sin(angle * 2 - t * 0.5) * 0.1;
+    var r = baseR + amp * n;
+    var x = cx + r * Math.cos(angle);
+    var y = cy + r * Math.sin(angle);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+
+  // fill
+  var grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseR + amp);
+  var alpha = 0.06 + vol * 0.12;
+  grad.addColorStop(0, 'rgba(229, 90, 28, ' + (alpha * 1.5) + ')');
+  grad.addColorStop(0.5, 'rgba(229, 90, 28, ' + alpha + ')');
+  grad.addColorStop(1, 'rgba(229, 90, 28, 0)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // stroke
+  ctx.strokeStyle = 'rgba(247, 246, 243, ' + (0.15 + vol * 0.6) + ')';
+  ctx.lineWidth = 1 + vol * 2;
+  ctx.stroke();
+
+  // inner glow ring
+  ctx.beginPath();
+  ctx.arc(cx, cy, baseR * 0.3 + vol * baseR * 0.2, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(229, 90, 28, ' + (vol * 0.8) + ')';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+function drawGrid(vol) {
+  var cols = 16, rows = 10;
+  var cellW = W / cols, cellH = (H - 108) / rows;
+  var offsetY = 48;
+  var t = frame * 0.015;
+
+  for (var r = 0; r < rows; r++) {
+    for (var c = 0; c < cols; c++) {
+      var x = c * cellW + cellW / 2;
+      var y = offsetY + r * cellH + cellH / 2;
+      var dx = (x - cx) / cx;
+      var dy = (y - cy) / cy;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      var wave = Math.sin(dist * 4 - t * 3 + vol * 10) * 0.5 + 0.5;
+      var size = (cellW * 0.12) + vol * cellW * 0.3 * wave;
+      var alpha = 0.08 + wave * 0.3 + vol * 0.4 * wave;
+
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      var r2 = Math.round(229 * alpha + 17 * (1 - alpha));
+      var g2 = Math.round(90 * alpha + 17 * (1 - alpha));
+      var b2 = Math.round(28 * alpha + 16 * (1 - alpha));
+      ctx.fillStyle = 'rgba(' + r2 + ',' + g2 + ',' + b2 + ',' + alpha + ')';
+      ctx.fill();
+    }
+  }
+}
+
+function drawRing(vol) {
+  var rings = 6;
+  var baseR = Math.min(W, H) * 0.08;
+  var t = frame * 0.006;
+
+  for (var ri = 0; ri < rings; ri++) {
+    var ratio = (ri + 1) / rings;
+    var r = baseR * (1 + ri * 1.2) + vol * baseR * 2 * (1 - ratio * 0.5);
+    var pts = 60 + ri * 20;
+    var amp = vol * r * 0.25 * (1 - ratio * 0.3);
+    var speed = (ri % 2 === 0 ? 1 : -1) * (0.5 + ri * 0.2);
+
+    ctx.beginPath();
+    for (var i = 0; i <= pts; i++) {
+      var angle = (i / pts) * Math.PI * 2;
+      var n = Math.sin(angle * (3 + ri) + t * speed) * 0.6
+            + Math.sin(angle * (5 + ri * 2) - t * speed * 1.3) * 0.4;
+      var rad = r + amp * n;
+      var x = cx + rad * Math.cos(angle);
+      var y = cy + rad * Math.sin(angle);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    var alpha = (0.08 + vol * 0.25) * (1 - ratio * 0.4);
+    ctx.strokeStyle = 'rgba(247, 246, 243, ' + alpha + ')';
+    ctx.lineWidth = 0.5 + vol * 1.5 * (1 - ratio * 0.5);
+    ctx.stroke();
+  }
+
+  // center dot
+  ctx.beginPath();
+  ctx.arc(cx, cy, 2 + vol * 12, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(229, 90, 28, ' + (0.4 + vol * 0.6) + ')';
+  ctx.fill();
+}
+
+function drawWave(vol) {
+  var t = frame * 0.02;
+  var layers = 5;
+  var areaH = H - 108;
+  var midY = 48 + areaH / 2;
+
+  for (var li = 0; li < layers; li++) {
+    var ratio = li / (layers - 1);
+    var amp = (50 + vol * 200) * (1 - ratio * 0.5);
+    var freq = 0.008 + ratio * 0.006;
+    var speed = (1 + ratio * 1.5) * (li % 2 === 0 ? 1 : -1);
+    var yOff = (ratio - 0.5) * areaH * 0.3;
+
+    ctx.beginPath();
+    ctx.moveTo(0, midY + yOff);
+    for (var x = 0; x <= W; x += 2) {
+      var y = midY + yOff
+        + Math.sin(x * freq + t * speed) * amp * 0.5
+        + Math.sin(x * freq * 2.3 - t * speed * 0.7) * amp * 0.3
+        + Math.sin(x * freq * 0.5 + t * speed * 0.4) * amp * 0.2;
+      ctx.lineTo(x, y);
+    }
+    var alpha = (0.06 + vol * 0.2) * (1 - ratio * 0.5);
+    if (li === 0) {
+      ctx.lineTo(W, midY + yOff + areaH);
+      ctx.lineTo(0, midY + yOff + areaH);
+      ctx.closePath();
+      var grad = ctx.createLinearGradient(0, midY - amp, 0, midY + amp);
+      grad.addColorStop(0, 'rgba(229, 90, 28, ' + (alpha * 0.5) + ')');
+      grad.addColorStop(1, 'rgba(229, 90, 28, 0)');
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(247, 246, 243, ' + alpha * 1.5 + ')';
+    ctx.lineWidth = 1 + (layers - li) * 0.3 + vol;
+    ctx.stroke();
+  }
+}
+
+// ── MAIN LOOP ────────────────────────────────────────────────────
+
+function draw() {
+  requestAnimationFrame(draw);
+  frame++;
+
+  // get volume
+  if (micActive) {
+    volume = getVolume();
+  } else {
+    // idle animation when no mic
+    volume = 0;
+  }
+
+  // smooth
+  smoothVol += (volume - smoothVol) * 0.15;
+
+  // peak
+  if (smoothVol > peakDecay) {
+    peakDecay = smoothVol;
+    peak = Math.round(smoothVol * 100);
+  } else {
+    peakDecay *= 0.995;
+  }
+
+  // update UI
+  if (micActive) {
+    document.getElementById('volDisplay').textContent = Math.round(smoothVol * 100);
+    document.getElementById('peakDisplay').textContent = peak;
+    updateVU(smoothVol);
+  }
+
+  // clear
+  ctx.clearRect(0, 0, W, H);
+
+  // very subtle bg glow when loud
+  if (smoothVol > 0.3) {
+    var bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(W, H) * 0.6);
+    bgGrad.addColorStop(0, 'rgba(229, 90, 28, ' + (smoothVol - 0.3) * 0.08 + ')');
+    bgGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // idle movement even without mic
+  var drawVol = micActive ? smoothVol : (Math.sin(frame * 0.01) * 0.04 + 0.04);
+
+  switch (mode) {
+    case 'blob': drawBlob(drawVol); break;
+    case 'grid': drawGrid(drawVol); break;
+    case 'ring': drawRing(drawVol); break;
+    case 'wave': drawWave(drawVol); break;
+  }
+}
+
+draw();
+</script>
+</body>
+</html>
