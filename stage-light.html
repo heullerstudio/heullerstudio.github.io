@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stage Light — Heuller Studio</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #000;
+      overflow: hidden;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    }
+    canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: block;
+    }
+
+    /* HUD — fades out after inactivity */
+    .hud {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 52px;
+      display: flex;
+      align-items: stretch;
+      background: rgba(0,0,0,0.7);
+      border-top: 1px solid rgba(255,255,255,0.08);
+      transition: opacity 0.6s ease;
+      z-index: 100;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .hud.hidden { opacity: 0; pointer-events: none; }
+
+    .hud-cell {
+      display: flex;
+      align-items: center;
+      padding: 0 1.2rem;
+      border-right: 1px solid rgba(255,255,255,0.06);
+      gap: 0.7rem;
+      flex-shrink: 0;
+    }
+    .hud-label {
+      font-size: 8px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.2);
+    }
+
+    /* SOURCE TABS */
+    .src-tabs {
+      display: flex;
+      align-items: center;
+      padding: 0 0.8rem;
+      gap: 0.3rem;
+      border-right: 1px solid rgba(255,255,255,0.06);
+    }
+    .src-tab {
+      background: none;
+      border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.3);
+      font-size: 8px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      padding: 0.25rem 0.7rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .src-tab:hover { color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.3); }
+    .src-tab.active { border-color: #fff; color: #fff; }
+
+    /* SOURCE PANELS */
+    .src-panel {
+      display: none;
+      align-items: center;
+      padding: 0 0.8rem;
+      gap: 0.6rem;
+      border-right: 1px solid rgba(255,255,255,0.06);
+    }
+    .src-panel.visible { display: flex; }
+
+    .ctl-btn {
+      background: none;
+      border: 1px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.5);
+      font-size: 8px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      padding: 0.28rem 0.9rem;
+      height: 32px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .ctl-btn:hover { border-color: rgba(255,255,255,0.5); color: #fff; }
+    .ctl-btn.on { border-color: #fff; color: #fff; }
+    .ctl-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+    .ctl-btn.on .ctl-dot { animation: blink 1.2s ease-in-out infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+    .url-inp {
+      background: none;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.7);
+      font-size: 8px;
+      letter-spacing: 0.06em;
+      padding: 0 0.7rem;
+      height: 32px;
+      width: 200px;
+      outline: none;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .url-inp:focus { border-color: rgba(255,255,255,0.35); }
+    .url-inp::placeholder { color: rgba(255,255,255,0.15); }
+
+    /* MODE BUTTONS */
+    .mode-btns {
+      display: flex;
+      align-items: center;
+      padding: 0 0.8rem;
+      gap: 0.3rem;
+      border-right: 1px solid rgba(255,255,255,0.06);
+    }
+    .mode-btn {
+      background: none;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.25);
+      font-size: 8px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 0.25rem 0.7rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .mode-btn:hover { color: rgba(255,255,255,0.6); border-color: rgba(255,255,255,0.3); }
+    .mode-btn.active { border-color: #fff; color: #fff; }
+
+    /* BAND METERS */
+    .meters {
+      display: flex;
+      align-items: center;
+      padding: 0 1rem;
+      gap: 6px;
+      border-right: 1px solid rgba(255,255,255,0.06);
+    }
+    .meter-group { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .meter-label { font-size: 7px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.15); }
+    .meter-bars { display: flex; gap: 2px; align-items: flex-end; height: 22px; }
+    .meter-bar { width: 3px; background: rgba(255,255,255,0.06); border-radius: 1px; position: relative; overflow: hidden; height: 22px; }
+    .meter-fill { position: absolute; bottom:0; left:0; right:0; border-radius:1px; transition: height 0.04s; }
+
+    /* FULLSCREEN */
+    .fs-btn {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.25);
+      font-size: 8px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      padding: 0 1.4rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: color 0.15s;
+      border-left: 1px solid rgba(255,255,255,0.06);
+      height: 100%;
+    }
+    .fs-btn:hover { color: #fff; }
+
+    /* COLOR THEME */
+    .theme-btns {
+      display: flex;
+      align-items: center;
+      padding: 0 0.8rem;
+      gap: 0.4rem;
+      border-right: 1px solid rgba(255,255,255,0.06);
+    }
+    .theme-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: border-color 0.15s;
+    }
+    .theme-dot.active { border-color: #fff; }
+    .theme-dot:hover { border-color: rgba(255,255,255,0.5); }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="hud" id="hud">
+
+  <!-- SOURCE SELECT -->
+  <div class="src-tabs">
+    <button class="src-tab active" onclick="selectSrc('mic')" id="stab-mic">Mic</button>
+    <button class="src-tab" onclick="selectSrc('tab')" id="stab-tab">Tab</button>
+    <button class="src-tab" onclick="selectSrc('file')" id="stab-file">File</button>
+  </div>
+
+  <!-- MIC PANEL -->
+  <div class="src-panel visible" id="spanel-mic">
+    <button class="ctl-btn" id="micBtn" onclick="toggleMic()">
+      <span class="ctl-dot"></span><span id="micLbl">Enable</span>
+    </button>
+  </div>
+
+  <!-- TAB PANEL -->
+  <div class="src-panel" id="spanel-tab">
+    <button class="ctl-btn" id="tabBtn" onclick="toggleTab()">
+      <span class="ctl-dot"></span><span id="tabLbl">Share Tab</span>
+    </button>
+  </div>
+
+  <!-- FILE PANEL -->
+  <div class="src-panel" id="spanel-file">
+    <label class="ctl-btn" style="cursor:pointer;">
+      <input type="file" accept="audio/*" id="fileInp" onchange="loadFile(this)" style="display:none;">
+      <span class="ctl-dot" id="fileDot"></span>
+      <span id="fileLbl">Load File</span>
+    </label>
+    <button class="ctl-btn" id="playBtn" onclick="togglePlay()" style="display:none;">Play</button>
+  </div>
+
+  <!-- MODE -->
+  <div class="mode-btns">
+    <button class="mode-btn active" onclick="setMode('wash')"   id="mode-wash">Wash</button>
+    <button class="mode-btn"        onclick="setMode('spot')"   id="mode-spot">Spot</button>
+    <button class="mode-btn"        onclick="setMode('beam')"   id="mode-beam">Beam</button>
+    <button class="mode-btn"        onclick="setMode('scatter')" id="mode-scatter">Scatter</button>
+  </div>
+
+  <!-- COLOR THEMES -->
+  <div class="theme-btns" title="Color theme">
+    <div class="theme-dot active" style="background:#ffffff;" onclick="setTheme(0)" id="td0"></div>
+    <div class="theme-dot" style="background:#e55a1c;" onclick="setTheme(1)" id="td1"></div>
+    <div class="theme-dot" style="background:#3a7bd5;" onclick="setTheme(2)" id="td2"></div>
+    <div class="theme-dot" style="background:#00e5a0;" onclick="setTheme(3)" id="td3"></div>
+  </div>
+
+  <!-- BAND METERS -->
+  <div class="meters">
+    <div class="meter-group">
+      <div class="meter-bars" id="mBass"></div>
+      <div class="meter-label">Bass</div>
+    </div>
+    <div class="meter-group">
+      <div class="meter-bars" id="mMid"></div>
+      <div class="meter-label">Mid</div>
+    </div>
+    <div class="meter-group">
+      <div class="meter-bars" id="mTreb"></div>
+      <div class="meter-label">Treble</div>
+    </div>
+  </div>
+
+  <!-- FULLSCREEN -->
+  <button class="fs-btn" onclick="toggleFS()">&#x26F6; Full</button>
+</div>
+
+<script>
+var C = document.getElementById('c');
+var ctx = C.getContext('2d');
+var W, H;
+
+// Audio
+var audioCtx, analyser, dataArray;
+var micStream, tabStream, fileAudio, fileSource, tabSource;
+var micOn = false, tabOn = false, fileOn = false;
+
+// State
+var mode = 'wash';
+var frame = 0;
+var bass = 0, mid = 0, treble = 0, vol = 0;
+var sBass = 0, sMid = 0, sTreble = 0, sVol = 0;
+var peakBass = 0, peakMid = 0, peakTreb = 0;
+
+// Themes: [primary, secondary, accent]
+var THEMES = [
+  [255,255,255,  200,200,200,  255,255,255],
+  [255,90,28,    255,180,80,   255,220,150],
+  [58,123,213,   100,180,255,  200,230,255],
+  [0,229,160,    80,255,200,   200,255,230]
+];
+var theme = 0;
+function tc(ri,gi,bi, a) {
+  var t = THEMES[theme];
+  return 'rgba('+t[ri]+','+t[gi]+','+t[bi]+','+a+')';
+}
+
+// HUD auto-hide
+var hudTimer;
+function showHud() {
+  document.getElementById('hud').classList.remove('hidden');
+  clearTimeout(hudTimer);
+  hudTimer = setTimeout(function(){ document.getElementById('hud').classList.add('hidden'); }, 3000);
+}
+document.addEventListener('mousemove', showHud);
+document.addEventListener('touchstart', showHud);
+showHud();
+
+// Resize
+function resize() {
+  W = C.width  = window.innerWidth;
+  H = C.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Build band meters
+function buildMeter(id, n, color) {
+  var el = document.getElementById(id);
+  el.innerHTML = '';
+  var bars = [];
+  for (var i = 0; i < n; i++) {
+    var b = document.createElement('div'); b.className = 'meter-bar';
+    var f = document.createElement('div'); f.className = 'meter-fill';
+    f.style.background = color;
+    b.appendChild(f); el.appendChild(b); bars.push(f);
+  }
+  return bars;
+}
+var mBars = buildMeter('mBass', 5, '#fff');
+var mMids = buildMeter('mMid',  5, '#fff');
+var mTrebs= buildMeter('mTreb', 5, '#fff');
+
+function updateMeters() {
+  function upd(bars, v) {
+    var n = bars.length;
+    for (var i = 0; i < n; i++) {
+      bars[i].style.height = (v > (i/n) ? (100 - i*8) : 0) + '%';
+      bars[i].style.opacity = v > (i/n) ? 1 : 0.15;
+    }
+  }
+  upd(mBars,  sBass);
+  upd(mMids,  sMid);
+  upd(mTrebs, sTreble);
+}
+
+// Audio init
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  analyser.smoothingTimeConstant = 0.75;
+  dataArray = new Uint8Array(analyser.frequencyBinCount);
+}
+
+function getActive() { return micOn || tabOn || fileOn; }
+
+function getSpectrum() {
+  if (!analyser || !getActive()) return;
+  analyser.getByteFrequencyData(dataArray);
+  var len = dataArray.length;
+  var bEnd = Math.floor(len * 0.04);
+  var mEnd = Math.floor(len * 0.25);
+  var b=0, m=0, tr=0;
+  for (var i=0;      i<bEnd; i++) b  += dataArray[i];
+  for (var i=bEnd;   i<mEnd; i++) m  += dataArray[i];
+  for (var i=mEnd;   i<len;  i++) tr += dataArray[i];
+  bass   = b  / (bEnd        * 255);
+  mid    = m  / ((mEnd-bEnd) * 255);
+  treble = tr / ((len-mEnd)  * 255);
+  vol    = bass*0.5 + mid*0.35 + treble*0.15;
+}
+
+// Source controls
+window.selectSrc = function(src) {
+  ['mic','tab','file'].forEach(function(s) {
+    document.getElementById('stab-'+s).classList.toggle('active', s===src);
+    var p = document.getElementById('spanel-'+s);
+    p.classList.toggle('visible', s===src);
+  });
+};
+
+window.toggleMic = function() {
+  if (micOn) {
+    if (micStream) micStream.getTracks().forEach(function(t){t.stop();});
+    micOn = false;
+    document.getElementById('micBtn').classList.remove('on');
+    document.getElementById('micLbl').textContent = 'Enable';
+  } else {
+    navigator.mediaDevices.getUserMedia({audio:true,video:false}).then(function(stream){
+      initAudio(); if(audioCtx.state==='suspended') audioCtx.resume();
+      micStream = stream;
+      var src = audioCtx.createMediaStreamSource(stream);
+      src.connect(analyser);
+      micOn = true;
+      document.getElementById('micBtn').classList.add('on');
+      document.getElementById('micLbl').textContent = 'On';
+    }).catch(function(){ alert('Mic access denied.'); });
+  }
+};
+
+window.toggleTab = function() {
+  if (tabOn) {
+    if (tabStream) tabStream.getTracks().forEach(function(t){t.stop();});
+    if (tabSource) tabSource.disconnect();
+    tabStream = null; tabSource = null; tabOn = false;
+    document.getElementById('tabBtn').classList.remove('on');
+    document.getElementById('tabLbl').textContent = 'Share Tab';
+  } else {
+    navigator.mediaDevices.getDisplayMedia({video:true,audio:true}).then(function(stream){
+      if (!stream.getAudioTracks().length) {
+        stream.getTracks().forEach(function(t){t.stop();});
+        alert('No audio. Tick "Share tab audio" in the dialog.'); return;
+      }
+      initAudio(); if(audioCtx.state==='suspended') audioCtx.resume();
+      stream.getVideoTracks().forEach(function(t){t.stop();});
+      tabStream = stream;
+      tabSource = audioCtx.createMediaStreamSource(stream);
+      tabSource.connect(analyser);
+      tabOn = true;
+      document.getElementById('tabBtn').classList.add('on');
+      document.getElementById('tabLbl').textContent = 'Stop';
+    }).catch(function(e){ if(e.name!=='NotAllowedError') alert('Tab capture failed: '+e.message); });
+  }
+};
+
+window.loadFile = function(input) {
+  if (!input.files.length) return;
+  var file = input.files[0];
+  document.getElementById('fileLbl').textContent = file.name.length>16 ? file.name.slice(0,14)+'...' : file.name;
+  document.getElementById('fileDot').style.background = '#fff';
+  if (fileAudio) { fileAudio.pause(); fileAudio.src=''; fileSource=null; }
+  fileAudio = new Audio();
+  fileAudio.src = URL.createObjectURL(file);
+  fileAudio.loop = true;
+  fileOn = false;
+  document.getElementById('playBtn').style.display = 'flex';
+  document.getElementById('playBtn').textContent = 'Play';
+  document.getElementById('playBtn').classList.remove('on');
+};
+
+window.togglePlay = function() {
+  if (!fileAudio) return;
+  initAudio(); if(audioCtx.state==='suspended') audioCtx.resume();
+  if (!fileSource) {
+    fileSource = audioCtx.createMediaElementSource(fileAudio);
+    fileSource.connect(analyser);
+    analyser.connect(audioCtx.destination);
+  }
+  if (fileOn) {
+    fileAudio.pause(); fileOn = false;
+    document.getElementById('playBtn').textContent = 'Play';
+    document.getElementById('playBtn').classList.remove('on');
+  } else {
+    fileAudio.play(); fileOn = true;
+    document.getElementById('playBtn').textContent = 'Pause';
+    document.getElementById('playBtn').classList.add('on');
+  }
+};
+
+window.setMode = function(m) {
+  mode = m;
+  document.querySelectorAll('.mode-btn').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('mode-'+m).classList.add('active');
+};
+
+window.setTheme = function(i) {
+  theme = i;
+  document.querySelectorAll('.theme-dot').forEach(function(d,j){ d.classList.toggle('active', j===i); });
+};
+
+window.toggleFS = function() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+  } else {
+    document.exitFullscreen && document.exitFullscreen();
+  }
+};
+
+// ================================================================
+// DRAW MODES — Stage Light concept
+// Black stage, sound = light
+// ================================================================
+
+function drawWash(b, m, tr) {
+  // Bass: massive low floor wash rising from bottom
+  // Mid:  wide overhead wash expanding from top
+  // Treble: sharp rim highlights at edges
+  var t = THEMES[theme];
+
+  // Bass floor wash
+  if (b > 0.01) {
+    var washH = H * (0.2 + b * 0.7);
+    var g = ctx.createLinearGradient(0, H, 0, H - washH);
+    g.addColorStop(0,   'rgba('+t[0]+','+t[1]+','+t[2]+','+(b*0.95)+')');
+    g.addColorStop(0.4, 'rgba('+t[0]+','+t[1]+','+t[2]+','+(b*0.35)+')');
+    g.addColorStop(1,   'rgba('+t[0]+','+t[1]+','+t[2]+',0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, H-washH, W, washH);
+  }
+
+  // Mid overhead wash
+  if (m > 0.01) {
+    var midH = H * (0.15 + m * 0.55);
+    var g2 = ctx.createLinearGradient(0, 0, 0, midH);
+    g2.addColorStop(0,   'rgba('+t[3]+','+t[4]+','+t[5]+','+(m*0.8)+')');
+    g2.addColorStop(0.5, 'rgba('+t[3]+','+t[4]+','+t[5]+','+(m*0.25)+')');
+    g2.addColorStop(1,   'rgba('+t[3]+','+t[4]+','+t[5]+',0)');
+    ctx.fillStyle = g2;
+    ctx.fillRect(0, 0, W, midH);
+  }
+
+  // Treble edge rim lights — left and right
+  if (tr > 0.02) {
+    var rimW = W * (0.04 + tr * 0.08);
+    var gL = ctx.createLinearGradient(0, 0, rimW, 0);
+    gL.addColorStop(0, 'rgba('+t[6]+','+t[7]+','+t[8]+','+(tr*0.9)+')');
+    gL.addColorStop(1, 'rgba('+t[6]+','+t[7]+','+t[8]+',0)');
+    ctx.fillStyle = gL;
+    ctx.fillRect(0, 0, rimW, H);
+
+    var gR = ctx.createLinearGradient(W, 0, W-rimW, 0);
+    gR.addColorStop(0, 'rgba('+t[6]+','+t[7]+','+t[8]+','+(tr*0.9)+')');
+    gR.addColorStop(1, 'rgba('+t[6]+','+t[7]+','+t[8]+',0)');
+    ctx.fillStyle = gR;
+    ctx.fillRect(W-rimW, 0, rimW, H);
+  }
+}
+
+function drawSpot(b, m, tr) {
+  // 1–3 follow spots. Bass = size & intensity. Mid = movement. Treble = sharp halo
+  var t = THEMES[theme];
+  var tf = frame * 0.008;
+
+  // Number of spots driven by bass level
+  var nSpots = b > 0.5 ? 3 : (b > 0.2 ? 2 : 1);
+
+  for (var s = 0; s < nSpots; s++) {
+    var phase = s * Math.PI * 2 / 3;
+    // Mid drives slow drift
+    var sx = W*0.5 + Math.sin(tf*0.7 + phase) * W * (0.15 + m * 0.22);
+    var sy = H*0.5 + Math.cos(tf*0.5 + phase) * H * (0.1  + m * 0.18);
+
+    var r = Math.min(W,H) * (0.08 + b * 0.28 + (s===0 ? 0.05 : 0));
+    var intensity = (b * 0.6 + m * 0.2) * (s===0 ? 1 : 0.5);
+
+    // Spot body
+    var g = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
+    g.addColorStop(0,    'rgba('+t[0]+','+t[1]+','+t[2]+','+Math.min(0.95,intensity)+')');
+    g.addColorStop(0.35, 'rgba('+t[0]+','+t[1]+','+t[2]+','+(intensity*0.6)+')');
+    g.addColorStop(0.75, 'rgba('+t[0]+','+t[1]+','+t[2]+','+(intensity*0.12)+')');
+    g.addColorStop(1,    'rgba('+t[0]+','+t[1]+','+t[2]+',0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(sx, sy, r, 0, Math.PI*2);
+    ctx.fill();
+
+    // Treble sharp halo ring
+    if (tr > 0.05) {
+      ctx.beginPath();
+      ctx.arc(sx, sy, r * (0.7 + tr * 0.4), 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba('+t[6]+','+t[7]+','+t[8]+','+(tr*0.8)+')';
+      ctx.lineWidth = 0.5 + tr * 3;
+      ctx.stroke();
+    }
+  }
+}
+
+function drawBeam(b, m, tr) {
+  // Vertical beam columns from above, like a grid of par cans
+  // Bass = brightness/width, Mid = spread, Treble = flicker edge
+  var t = THEMES[theme];
+  var tf = frame * 0.01;
+  var nBeams = 7;
+
+  for (var bi = 0; bi < nBeams; bi++) {
+    var ratio = bi / (nBeams-1);
+    // Each beam has independent bass-driven pulse with slight offset
+    var beamPhase = bi * 0.4;
+    var beamBass  = b * (0.6 + 0.4 * Math.sin(tf * 1.2 + beamPhase));
+    var beamMid   = m * (0.5 + 0.5 * Math.cos(tf * 0.8 - beamPhase));
+
+    var bx   = W * (0.08 + ratio * 0.84);
+    var bw   = W * (0.02 + beamBass * 0.06 + beamMid * 0.02);
+    var bh   = H * (0.3  + beamBass * 0.65);
+    var intensity = beamBass * 0.85 + beamMid * 0.1;
+
+    if (intensity < 0.01) continue;
+
+    // Main beam — narrow column from top
+    var g = ctx.createLinearGradient(bx, 0, bx, bh);
+    g.addColorStop(0,    'rgba('+t[0]+','+t[1]+','+t[2]+','+Math.min(0.95,intensity)+')');
+    g.addColorStop(0.6,  'rgba('+t[0]+','+t[1]+','+t[2]+','+(intensity*0.4)+')');
+    g.addColorStop(1,    'rgba('+t[0]+','+t[1]+','+t[2]+',0)');
+
+    // Side gradient for beam width
+    var gx = ctx.createLinearGradient(bx-bw, 0, bx+bw, 0);
+    gx.addColorStop(0,   'rgba('+t[0]+','+t[1]+','+t[2]+',0)');
+    gx.addColorStop(0.3, 'rgba('+t[0]+','+t[1]+','+t[2]+','+(intensity*0.4)+')');
+    gx.addColorStop(0.5, 'rgba('+t[0]+','+t[1]+','+t[2]+','+Math.min(0.95,intensity)+')');
+    gx.addColorStop(0.7, 'rgba('+t[0]+','+t[1]+','+t[2]+','+(intensity*0.4)+')');
+    gx.addColorStop(1,   'rgba('+t[0]+','+t[1]+','+t[2]+',0)');
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.fillStyle = g;
+    ctx.fillRect(bx-bw, 0, bw*2, bh);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.restore();
+
+    // Floor pool at beam base
+    var poolR = bw * 2.5 + beamBass * W * 0.04;
+    var gp = ctx.createRadialGradient(bx, bh, 0, bx, bh, poolR);
+    gp.addColorStop(0, 'rgba('+t[0]+','+t[1]+','+t[2]+','+(intensity*0.7)+')');
+    gp.addColorStop(1, 'rgba('+t[0]+','+t[1]+','+t[2]+',0)');
+    ctx.fillStyle = gp;
+    ctx.beginPath();
+    ctx.ellipse(bx, bh, poolR, poolR*0.35, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // Treble flicker — sharp bright line at beam edge
+    if (tr > 0.06) {
+      ctx.beginPath();
+      ctx.moveTo(bx, 0);
+      ctx.lineTo(bx, bh * (0.4 + tr * 0.6));
+      ctx.strokeStyle = 'rgba('+t[6]+','+t[7]+','+t[8]+','+(tr * intensity)+')';
+      ctx.lineWidth = 0.5 + tr * 1.5;
+      ctx.stroke();
+    }
+  }
+}
+
+function drawScatter(b, m, tr) {
+  // Mirror ball / haze scatter
+  // Bass = haze density, Mid = rotation speed, Treble = glint sharpness
+  var t = THEMES[theme];
+  var tf = frame * 0.015;
+
+  // Haze layer — diffuse background fog driven by bass
+  if (b > 0.02) {
+    var hg = ctx.createRadialGradient(W*0.5, H*0.4, 0, W*0.5, H*0.4, Math.min(W,H)*0.6);
+    hg.addColorStop(0, 'rgba('+t[0]+','+t[1]+','+t[2]+','+(b*0.18)+')');
+    hg.addColorStop(1, 'rgba('+t[0]+','+t[1]+','+t[2]+',0)');
+    ctx.fillStyle = hg;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // Mirror ball glints — each one a sharp bright dot orbiting
+  var nGlints = Math.floor(24 + m * 60);
+  var baseRot = tf * (0.3 + m * 1.5);
+
+  for (var g = 0; g < nGlints; g++) {
+    var angle  = (g / nGlints) * Math.PI * 2 + baseRot;
+    var vangle = (g / nGlints) * Math.PI + tf * 0.7;
+    var dist   = Math.min(W,H) * (0.2 + (g % 5) * 0.06 + b * 0.15);
+
+    var gx = W*0.5 + Math.cos(angle) * dist;
+    var gy = H*0.4 + Math.sin(vangle) * dist * 0.5;
+
+    // Glint intensity — peaks sharply at certain rotation angles (like light hitting a mirror)
+    var glintPhase = Math.abs(Math.sin(angle * 3 + tf * 2));
+    var glintI = Math.pow(glintPhase, 4) * (0.3 + tr * 0.7) * (0.4 + b * 0.4);
+
+    if (glintI < 0.02) continue;
+
+    var gr = Math.min(W,H) * (0.004 + tr * 0.012);
+    var gg = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr * (2 + tr * 3));
+    gg.addColorStop(0, 'rgba('+t[6]+','+t[7]+','+t[8]+','+Math.min(1, glintI*2)+')');
+    gg.addColorStop(0.2, 'rgba('+t[0]+','+t[1]+','+t[2]+','+glintI+')');
+    gg.addColorStop(1, 'rgba('+t[0]+','+t[1]+','+t[2]+',0)');
+    ctx.fillStyle = gg;
+    ctx.beginPath();
+    ctx.arc(gx, gy, gr * (2 + tr * 3), 0, Math.PI*2);
+    ctx.fill();
+
+    // Sharp centre pixel for bright glints
+    if (glintI > 0.4) {
+      ctx.beginPath();
+      ctx.arc(gx, gy, gr, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba('+t[6]+','+t[7]+','+t[8]+','+Math.min(1,glintI)+')';
+      ctx.fill();
+    }
+  }
+
+  // Treble: cross-star rays on brightest glint
+  if (tr > 0.15) {
+    var sx = W*0.5 + Math.cos(baseRot) * Math.min(W,H)*0.25;
+    var sy = H*0.4 + Math.sin(baseRot*0.6) * H*0.2;
+    var rayLen = Math.min(W,H) * tr * 0.3;
+    for (var r = 0; r < 4; r++) {
+      var ra = r * Math.PI/4 + tf;
+      ctx.beginPath();
+      ctx.moveTo(sx - Math.cos(ra)*2, sy - Math.sin(ra)*2);
+      ctx.lineTo(sx + Math.cos(ra)*rayLen, sy + Math.sin(ra)*rayLen);
+      var rg = ctx.createLinearGradient(sx, sy, sx+Math.cos(ra)*rayLen, sy+Math.sin(ra)*rayLen);
+      rg.addColorStop(0, 'rgba('+t[6]+','+t[7]+','+t[8]+','+(tr*0.9)+')');
+      rg.addColorStop(1, 'rgba('+t[6]+','+t[7]+','+t[8]+',0)');
+      ctx.strokeStyle = rg;
+      ctx.lineWidth = 0.5 + tr * 1.5;
+      ctx.stroke();
+    }
+  }
+}
+
+// ================================================================
+// MAIN LOOP
+// ================================================================
+function draw() {
+  requestAnimationFrame(draw);
+  frame++;
+
+  getSpectrum();
+
+  // Smooth — different speeds per band for feel
+  // Bass: medium smooth (punchy but not jittery)
+  // Mid: slightly slower
+  // Treble: fast (instant sparkle)
+  var active = getActive();
+  var targetBass   = active ? bass   : 0;
+  var targetMid    = active ? mid    : 0;
+  var targetTreble = active ? treble : 0;
+
+  sBass   += (targetBass   - sBass)   * 0.22;
+  sMid    += (targetMid    - sMid)    * 0.16;
+  sTreble += (targetTreble - sTreble) * 0.35;
+  sVol    = sBass*0.5 + sMid*0.35 + sTreble*0.15;
+
+  // Clear to near-black every frame — no trail
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+
+  // Draw
+  switch(mode) {
+    case 'wash':    drawWash(sBass, sMid, sTreble);    break;
+    case 'spot':    drawSpot(sBass, sMid, sTreble);    break;
+    case 'beam':    drawBeam(sBass, sMid, sTreble);    break;
+    case 'scatter': drawScatter(sBass, sMid, sTreble); break;
+  }
+
+  updateMeters();
+}
+
+draw();
+</script>
+</body>
+</html>
