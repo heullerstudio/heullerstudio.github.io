@@ -258,7 +258,7 @@ var PROJECTS = [
   // subcategory: "Media Art" | "Projection Mapping" | "Interaction"
   {
     id: "ue-project-1",
-    title: "[Museum HEI]",
+    title: "[Your UE Project Title]",
     category: "unreal",
     subcategory: "Projection Mapping",
     year: 2024,
@@ -266,7 +266,7 @@ var PROJECTS = [
     tags: ["UE5", "Projection", "Architecture"],
     description: "[Describe this project in 1-2 sentences. What was it, where, for whom?]",
     featured: true,
-    heroImage: "img/test02.png",
+    heroImage: "",
     images: ["", ""],
     specs: { "Type": "[e.g. Architectural Projection]", "Engine": "Unreal Engine 5", "Duration": "[e.g. 12 min]", "Year": "2024", "Location": "[City]" },
     body: [
@@ -285,9 +285,18 @@ var PROJECTS = [
     description: "[Describe the interactive work — what triggers it, what it responds to, where shown.]",
     featured: false
   },
-  
+  {
+    id: "ue-project-3",
+    title: "[Media Art Title]",
+    category: "unreal",
+    subcategory: "Media Art",
+    year: 2023,
+    location: "[City, Country]",
+    tags: ["UE5", "Real-Time", "Cinematic"],
+    description: "[Describe the media art work — concept, duration, context.]",
+    featured: false
+  },
 
-  
   // ── DESIGN LECTURE ─────────────────────────────────────────────
   // subcategory: "Design Studio" | "Design Research" | "Publication"
   {
@@ -345,6 +354,7 @@ var PROJECTS = [
     featured: true,
     heroImage: "",
     images: ["", ""],
+    demoUrl: "audio-form.html",
     specs: { "Type": "Research AI Agent", "Stack": "[e.g. Python + LLM API]", "Context": "[e.g. Studio & Teaching]", "Year": "2025" },
     body: [
       { heading: "Problem", text: "[What repetitive or complex task does this address?]\n\n[Why was existing tooling insufficient?]" },
@@ -423,7 +433,7 @@ var currentProjectId = null;
 window.showIndex = function() {
   document.getElementById("view-index").classList.add("active");
   document.getElementById("view-project").classList.remove("active");
-}
+};
 
 window.showProject = function(id) {
   var p = null;
@@ -453,34 +463,28 @@ window.showProject = function(id) {
     for (var j = 0; j < paras.length; j++) { paraHTML += "<p>" + paras[j] + "</p>"; }
     bodyHTML += '<div class="body-section"><div class="body-heading">' + sections[i].heading + '</div><div class="body-text">' + paraHTML + '</div></div>';
   }
+  if (p.demoUrl) {
+    bodyHTML += '<div class="body-section"><div class="body-heading">Live Demo</div><div class="body-text"><a href="' + p.demoUrl + '" target="_blank" style="display:inline-flex;align-items:center;gap:0.6rem;color:var(--orange);text-decoration:none;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;border:1px solid var(--orange);padding:0.6rem 1.2rem;">&#8594; Open Interactive Tool</a></div></div>';
+  }
   document.getElementById("proj-body").innerHTML = bodyHTML;
   var heroEl = document.getElementById("proj-img-hero");
-  if (p.heroImage) {
-    heroEl.innerHTML = '<img src="' + p.heroImage + '" alt="' + p.title + '">';
-  } else {
-    heroEl.innerHTML = '<span class="img-ph">Main Image</span>';
-  }
-  var gridEl = document.getElementById("proj-img-grid");
+  heroEl.innerHTML = p.heroImage ? '<img src="' + p.heroImage + '" alt="' + p.title + '">' : '<span class="img-ph">Main Image</span>';
   var imgs = p.images || ["", ""];
   var gridHTML = "";
   for (var i = 0; i < 2; i++) {
-    if (imgs[i]) {
-      gridHTML += '<div class="proj-img-cell"><img src="' + imgs[i] + '" alt="detail ' + (i+1) + '"></div>';
-    } else {
-      gridHTML += '<div class="proj-img-cell"><span class="img-ph">Detail 0' + (i+1) + '</span></div>';
-    }
+    gridHTML += imgs[i] ? '<div class="proj-img-cell"><img src="' + imgs[i] + '" alt="detail"></div>' : '<div class="proj-img-cell"><span class="img-ph">Detail 0' + (i+1) + '</span></div>';
   }
   document.getElementById("proj-img-grid").innerHTML = gridHTML;
   var featured = [];
   for (var i = 0; i < PROJECTS.length; i++) { if (PROJECTS[i].featured) featured.push(PROJECTS[i]); }
   var idx = -1;
   for (var i = 0; i < featured.length; i++) { if (featured[i].id === id) { idx = i; break; } }
-  document.getElementById("proj-prev-name").textContent = featured[idx-1] ? featured[idx-1].title : "All Work";
-  document.getElementById("proj-next-name").textContent = featured[idx+1] ? featured[idx+1].title : "All Work";
+  document.getElementById("proj-prev-name").textContent = idx > 0 ? featured[idx-1].title : "All Work";
+  document.getElementById("proj-next-name").textContent = idx < featured.length-1 ? featured[idx+1].title : "All Work";
   document.getElementById("proj-scroll").scrollTop = 0;
   document.getElementById("view-index").classList.remove("active");
   document.getElementById("view-project").classList.add("active");
-}
+};
 
 window.navProject = function(dir) {
   var featured = [];
@@ -488,31 +492,30 @@ window.navProject = function(dir) {
   var idx = -1;
   for (var i = 0; i < featured.length; i++) { if (featured[i].id === currentProjectId) { idx = i; break; } }
   if (featured[idx + dir]) { showProject(featured[idx + dir].id); } else { showIndex(); }
-}
+};
 
 window.scrollToId = function(id) {
   var el = document.getElementById(id);
   if (el) el.scrollIntoView({ behavior: "smooth" });
-}
+};
 
-window.getCounts = function() {
+function getCounts() {
   var c = { all: PROJECTS.length };
   for (var i = 0; i < CATEGORIES.length; i++) { if (CATEGORIES[i].id !== "all") c[CATEGORIES[i].id] = 0; }
   for (var i = 0; i < PROJECTS.length; i++) { if (c[PROJECTS[i].category] !== undefined) c[PROJECTS[i].category]++; }
   return c;
 }
 
-window.updateSidebar = function() {
+function updateSidebar() {
   var counts = getCounts();
   var btns = document.querySelectorAll(".cat-btn");
   for (var i = 0; i < btns.length; i++) {
-    var onclick = btns[i].getAttribute("onclick");
-    var match = onclick.match(/setCategory\('([^']+)'\)/);
+    var match = btns[i].getAttribute("onclick").match(/setCategory\('([^']+)'\)/);
     if (match) {
-      var id = match[1];
-      if (id === activeCategory) { btns[i].classList.add("active"); } else { btns[i].classList.remove("active"); }
-      var countEl = document.getElementById("count-" + id);
-      if (countEl) countEl.textContent = counts[id] || 0;
+      var cid = match[1];
+      btns[i].classList[cid === activeCategory ? "add" : "remove"]("active");
+      var el = document.getElementById("count-" + cid);
+      if (el) el.textContent = counts[cid] || 0;
     }
   }
 }
@@ -524,7 +527,7 @@ window.setCategory = function(id) {
   renderList();
   var pl = document.getElementById("project-list");
   if (pl) pl.scrollIntoView({ behavior: "smooth", block: "start" });
-}
+};
 
 window.toggleExpand = function(id) {
   openId = (openId === id) ? null : id;
@@ -535,65 +538,41 @@ window.toggleExpand = function(id) {
       if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }, 50);
   }
-}
+};
 
-window.renderList = function() {
+function renderList() {
   var list = [];
   for (var i = 0; i < PROJECTS.length; i++) {
     if (activeCategory === "all" || PROJECTS[i].category === activeCategory) list.push(PROJECTS[i]);
   }
   var container = document.getElementById("project-list");
-  if (!list.length) {
-    container.innerHTML = '<div style="padding:3rem 2.5rem;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint)">No projects yet.</div>';
-    return;
-  }
+  if (!list.length) { container.innerHTML = '<div style="padding:3rem 2.5rem;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint)">No projects yet.</div>'; return; }
   var grouped = {};
-  for (var i = 0; i < list.length; i++) {
-    if (!grouped[list[i].category]) grouped[list[i].category] = [];
-    grouped[list[i].category].push(list[i]);
-  }
+  for (var i = 0; i < list.length; i++) { if (!grouped[list[i].category]) grouped[list[i].category] = []; grouped[list[i].category].push(list[i]); }
   var order = [];
-  for (var i = 0; i < CATEGORIES.length; i++) {
-    if (CATEGORIES[i].id !== "all") {
-      if (activeCategory === "all" || CATEGORIES[i].id === activeCategory) order.push(CATEGORIES[i].id);
-    }
-  }
-  var html = "";
-  var n = 1;
+  for (var i = 0; i < CATEGORIES.length; i++) { if (CATEGORIES[i].id !== "all" && (activeCategory === "all" || CATEGORIES[i].id === activeCategory)) order.push(CATEGORIES[i].id); }
+  var html = "", n = 1;
   for (var oi = 0; oi < order.length; oi++) {
     var catId = order[oi];
     var items = grouped[catId];
     if (!items || !items.length) continue;
     var cat = null;
     for (var i = 0; i < CATEGORIES.length; i++) { if (CATEGORIES[i].id === catId) { cat = CATEGORIES[i]; break; } }
-    html += '<div class="group-header"><div><div class="group-name">' + cat.label + '</div>';
-    if (cat.note) html += '<div class="group-sub">' + cat.note + '</div>';
-    html += '</div><span class="group-count">' + items.length + '</span></div>';
+    html += '<div class="group-header"><div><div class="group-name">' + cat.label + '</div>' + (cat.note ? '<div class="group-sub">' + cat.note + '</div>' : '') + '</div><span class="group-count">' + items.length + '</span></div>';
     for (var ii = 0; ii < items.length; ii++) {
       var p = items[ii];
       var isOpen = (openId === p.id);
       var tags = "";
       if (p.tags) { for (var t = 0; t < p.tags.length; t++) tags += '<span class="tag">' + p.tags[t] + '</span>'; }
       var arrow = p.featured ? "\u2192" : (isOpen ? "\u2191" : "+");
-      var num = n < 10 ? "0" + n : "" + n;
-      var rowBody = '<div class="row-body">'
-        + '<div class="row-title">' + p.title + '<span class="row-badge">' + p.subcategory + '</span></div>'
-        + '<p class="row-desc">' + p.description + '</p>'
-        + '<div class="row-tags">' + tags + '</div></div>';
-      var rowMeta = '<div class="row-meta"><span class="row-year">' + p.year + '</span>'
-        + (p.location ? '<span class="row-location">' + p.location + '</span>' : '')
-        + '<span class="row-arrow">' + arrow + '</span></div>';
+      var num = (n < 10 ? "0" : "") + n;
+      var rowBody = '<div class="row-body"><div class="row-title">' + p.title + '<span class="row-badge">' + p.subcategory + '</span></div><p class="row-desc">' + p.description + '</p><div class="row-tags">' + tags + '</div></div>';
+      var rowMeta = '<div class="row-meta"><span class="row-year">' + p.year + '</span>' + (p.location ? '<span class="row-location">' + p.location + '</span>' : '') + '<span class="row-arrow">' + arrow + '</span></div>';
       var rowNum = '<span class="row-num">' + num + '</span>';
       if (p.featured) {
-        html += '<div class="project-row" data-id="' + p.id + '">'
-          + '<div class="project-row-inner" onclick="showProject(\'' + p.id + '\')">'
-          + rowNum + rowBody + rowMeta + '</div></div>';
+        html += '<div class="project-row" data-id="' + p.id + '"><div class="project-row-inner" onclick="showProject(\'' + p.id + '\')">' + rowNum + rowBody + rowMeta + '</div></div>';
       } else {
-        html += '<div class="project-row' + (isOpen ? ' open' : '') + '" data-id="' + p.id + '">'
-          + '<div class="project-row-inner" onclick="toggleExpand(\'' + p.id + '\')">'
-          + rowNum + rowBody + rowMeta + '</div>'
-          + '<div class="expand-panel' + (isOpen ? ' open' : '') + '">'
-          + '<div class="expand-inner"><span></span><p class="expand-text">' + p.description + '</p></div></div></div>';
+        html += '<div class="project-row' + (isOpen ? ' open' : '') + '" data-id="' + p.id + '"><div class="project-row-inner" onclick="toggleExpand(\'' + p.id + '\')">' + rowNum + rowBody + rowMeta + '</div><div class="expand-panel' + (isOpen ? ' open' : '') + '"><div class="expand-inner"><span></span><p class="expand-text">' + p.description + '</p></div></div></div>';
       }
       n++;
     }
