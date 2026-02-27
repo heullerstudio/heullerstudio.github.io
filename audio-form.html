@@ -347,6 +347,9 @@ var tabStream = null, tabSource = null, tabActive = false;
 var currentSource = 'mic';
 var volume = 0;
 var smoothVol = 0;
+var smoothBass = 0;
+var smoothMid = 0;
+var smoothTreble = 0;
 var peak = 0;
 var peakDecay = 0;
 var mode = 'blob';
@@ -387,7 +390,7 @@ function startMic() {
     .then(function(stream) {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
+      analyser.fftSize = 2048;
       analyser.smoothingTimeConstant = 0.8;
       dataArray = new Uint8Array(analyser.frequencyBinCount);
       source = audioCtx.createMediaStreamSource(stream);
@@ -419,21 +422,40 @@ function setMode(m) {
   document.getElementById('mode-' + m).classList.add('active');
 }
 
-function getVolume() {
-  if (!analyser) return 0;
+function getSpectrum() {
+  if (!analyser) return { vol: 0, bass: 0, mid: 0, treble: 0, raw: [] };
   analyser.getByteFrequencyData(dataArray);
-  var sum = 0;
-  for (var i = 0; i < dataArray.length; i++) sum += dataArray[i];
-  return sum / dataArray.length / 255;
+  var len = dataArray.length;
+  // frequency bands (FFT 2048 = 1024 bins, ~43Hz per bin at 44100Hz)
+  var bassEnd   = Math.floor(len * 0.04);   // 0–4%   bass
+  var midEnd    = Math.floor(len * 0.25);   // 4–25%  mids
+  // treble = rest
+  var bass = 0, mid = 0, treble = 0;
+  for (var i = 0;       i < bassEnd; i++) bass   += dataArray[i];
+  for (var i = bassEnd; i < midEnd;  i++) mid    += dataArray[i];
+  for (var i = midEnd;  i < len;     i++) treble += dataArray[i];
+  bass   /= bassEnd * 255;
+  mid    /= (midEnd - bassEnd) * 255;
+  treble /= (len - midEnd) * 255;
+  var vol = (bass * 0.5 + mid * 0.35 + treble * 0.15);
+  return { vol: vol, bass: bass, mid: mid, treble: treble, raw: dataArray };
 }
 
-function updateVU(vol) {
-  var filled = Math.round(vol * vuBars.length);
+function getVolume() {
+  return getSpectrum().vol;
+}
+
+function updateVU(bass, mid, treble) {
+  var bands = [bass, bass, bass, bass, bass, bass,
+               mid, mid, mid, mid, mid, mid, mid,
+               treble, treble, treble, treble, treble, treble, treble];
   for (var i = 0; i < vuBars.length; i++) {
-    var pct = i < filled ? Math.min(100, 30 + (i / vuBars.length) * 100) : 0;
-    vuBars[i].style.height = pct + '%';
-    var hue = i < filled * 0.6 ? 'var(--orange)' : (i < filled ? '#f0a070' : 'rgba(247,246,243,0.06)');
-    vuBars[i].style.background = hue;
+    var v = Math.min(1, bands[i] * 2.5);
+    vuBars[i].style.height = (v * 100) + '%';
+    var isBass = i < 6, isMid = i < 13;
+    vuBars[i].style.background = v > 0.05
+      ? (isBass ? 'var(--orange)' : (isMid ? '#d4884a' : '#e8c4a8'))
+      : 'rgba(247,246,243,0.06)';
   }
 }
 
@@ -466,7 +488,7 @@ function togglePlay() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 256;
+    analyser.fftSize = 2048;
     analyser.smoothingTimeConstant = 0.8;
     dataArray = new Uint8Array(analyser.frequencyBinCount);
   }
@@ -525,7 +547,7 @@ function toggleTab() {
       if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 256;
+        analyser.fftSize = 2048;
         analyser.smoothingTimeConstant = 0.8;
         dataArray = new Uint8Array(analyser.frequencyBinCount);
       }
@@ -566,7 +588,7 @@ function toggleUrlPlay() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 256;
+    analyser.fftSize = 2048;
     analyser.smoothingTimeConstant = 0.8;
     dataArray = new Uint8Array(analyser.frequencyBinCount);
   }
@@ -594,149 +616,205 @@ function toggleUrlPlay() {
 
 // ── DRAW MODES ──────────────────────────────────────────────────
 
-function drawBlob(vol) {
-  var pts = 120;
+function drawBlob(vol, bass, mid, treble) {
+  var pts = 180;
   var baseR = Math.min(W, H) * 0.22;
-  var amp = baseR * 0.6 * vol;
-  var t = frame * 0.008;
+  var t = frame * 0.006;
+
+  // bass drives overall size, mid drives medium freq distortion, treble drives fine detail
+  var ampBass   = baseR * 0.7 * bass;
+  var ampMid    = baseR * 0.35 * mid;
+  var ampTreble = baseR * 0.15 * treble;
 
   ctx.beginPath();
   for (var i = 0; i <= pts; i++) {
     var angle = (i / pts) * Math.PI * 2;
     var n = 0;
-    // layered noise-like displacement
-    n += Math.sin(angle * 3 + t * 1.2) * 0.4;
-    n += Math.sin(angle * 5 - t * 0.8) * 0.3;
-    n += Math.sin(angle * 7 + t * 2.1) * 0.2;
-    n += Math.sin(angle * 2 - t * 0.5) * 0.1;
-    var r = baseR + amp * n;
+    n += Math.sin(angle * 2 + t * 0.8)  * ampBass;
+    n += Math.sin(angle * 3 - t * 1.1)  * ampBass * 0.6;
+    n += Math.sin(angle * 5 + t * 1.8)  * ampMid;
+    n += Math.sin(angle * 7 - t * 2.4)  * ampMid * 0.5;
+    n += Math.sin(angle * 11 + t * 4.0) * ampTreble;
+    n += Math.sin(angle * 13 - t * 5.0) * ampTreble * 0.6;
+    var r = baseR + n;
     var x = cx + r * Math.cos(angle);
     var y = cy + r * Math.sin(angle);
     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   }
   ctx.closePath();
 
-  // fill
-  var grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseR + amp);
-  var alpha = 0.06 + vol * 0.12;
-  grad.addColorStop(0, 'rgba(229, 90, 28, ' + (alpha * 1.5) + ')');
+  var grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseR + ampBass);
+  var alpha = 0.05 + bass * 0.18;
+  grad.addColorStop(0,   'rgba(229, 90, 28, ' + (alpha * 2) + ')');
   grad.addColorStop(0.5, 'rgba(229, 90, 28, ' + alpha + ')');
-  grad.addColorStop(1, 'rgba(229, 90, 28, 0)');
+  grad.addColorStop(1,   'rgba(229, 90, 28, 0)');
   ctx.fillStyle = grad;
   ctx.fill();
 
-  // stroke
-  ctx.strokeStyle = 'rgba(247, 246, 243, ' + (0.15 + vol * 0.6) + ')';
-  ctx.lineWidth = 1 + vol * 2;
+  ctx.strokeStyle = 'rgba(247, 246, 243, ' + (0.1 + mid * 0.7 + treble * 0.3) + ')';
+  ctx.lineWidth = 0.5 + bass * 2.5 + treble * 1.5;
   ctx.stroke();
 
-  // inner glow ring
+  // bass pulse core
   ctx.beginPath();
-  ctx.arc(cx, cy, baseR * 0.3 + vol * baseR * 0.2, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(229, 90, 28, ' + (vol * 0.8) + ')';
-  ctx.lineWidth = 1;
-  ctx.stroke();
+  ctx.arc(cx, cy, baseR * 0.15 + bass * baseR * 0.35, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(229, 90, 28, ' + (bass * 0.9) + ')';
+  ctx.fill();
+
+  // treble sparkle dots
+  if (treble > 0.05) {
+    for (var d = 0; d < 8; d++) {
+      var da = (d / 8) * Math.PI * 2 + t * 3;
+      var dr = baseR * (0.6 + treble * 0.5);
+      ctx.beginPath();
+      ctx.arc(cx + dr * Math.cos(da), cy + dr * Math.sin(da), 1.5 + treble * 3, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(247, 246, 243, ' + (treble * 0.8) + ')';
+      ctx.fill();
+    }
+  }
 }
 
-function drawGrid(vol) {
-  var cols = 16, rows = 10;
+function drawGrid(vol, bass, mid, treble) {
+  var cols = 18, rows = 11;
   var cellW = W / cols, cellH = (H - 108) / rows;
   var offsetY = 48;
-  var t = frame * 0.015;
+  var t = frame * 0.012;
 
-  for (var r = 0; r < rows; r++) {
-    for (var c = 0; c < cols; c++) {
-      var x = c * cellW + cellW / 2;
-      var y = offsetY + r * cellH + cellH / 2;
-      var dx = (x - cx) / cx;
-      var dy = (y - cy) / cy;
+  for (var row = 0; row < rows; row++) {
+    for (var col = 0; col < cols; col++) {
+      var x = col * cellW + cellW / 2;
+      var y = offsetY + row * cellH + cellH / 2;
+      var dx = (x - cx) / (W * 0.5);
+      var dy = (y - cy) / (H * 0.5);
       var dist = Math.sqrt(dx * dx + dy * dy);
-      var wave = Math.sin(dist * 4 - t * 3 + vol * 10) * 0.5 + 0.5;
-      var size = (cellW * 0.12) + vol * cellW * 0.3 * wave;
-      var alpha = 0.08 + wave * 0.3 + vol * 0.4 * wave;
+
+      // bass = ripple speed, mid = wave shape, treble = fine noise
+      var bassWave   = Math.sin(dist * 3.5 - t * (2 + bass * 8))   * bass;
+      var midWave    = Math.sin(dist * 6   + t * (1.5 + mid * 5))  * mid * 0.6;
+      var trebleWave = Math.sin(dist * 12  - t * (4 + treble * 10)) * treble * 0.3;
+      var wave = Math.max(0, bassWave + midWave + trebleWave);
+
+      var baseSize = cellW * 0.1;
+      var size = baseSize + bass * cellW * 0.35 * (1 - dist * 0.3) + treble * cellW * 0.15;
+      size = Math.max(1, size);
+
+      var alpha = 0.05 + wave * 0.5 + bass * 0.3 * (1 - dist * 0.4);
+
+      // color shifts with frequency: bass=orange, mid=warm, treble=white
+      var r2 = Math.round(229 * (0.6 + bass * 0.4) + 247 * treble * 0.3);
+      var g2 = Math.round(90  * (1 - treble * 0.5));
+      var b2 = Math.round(28  * (1 - treble * 0.7) + 243 * treble * 0.2);
+      r2 = Math.min(255, r2); g2 = Math.min(255, g2); b2 = Math.min(255, b2);
 
       ctx.beginPath();
       ctx.arc(x, y, size, 0, Math.PI * 2);
-      var r2 = Math.round(229 * alpha + 17 * (1 - alpha));
-      var g2 = Math.round(90 * alpha + 17 * (1 - alpha));
-      var b2 = Math.round(28 * alpha + 16 * (1 - alpha));
       ctx.fillStyle = 'rgba(' + r2 + ',' + g2 + ',' + b2 + ',' + alpha + ')';
       ctx.fill();
     }
   }
 }
 
-function drawRing(vol) {
-  var rings = 6;
-  var baseR = Math.min(W, H) * 0.08;
-  var t = frame * 0.006;
+function drawRing(vol, bass, mid, treble) {
+  var rings = 7;
+  var baseR = Math.min(W, H) * 0.07;
+  var t = frame * 0.005;
 
   for (var ri = 0; ri < rings; ri++) {
-    var ratio = (ri + 1) / rings;
-    var r = baseR * (1 + ri * 1.2) + vol * baseR * 2 * (1 - ratio * 0.5);
-    var pts = 60 + ri * 20;
-    var amp = vol * r * 0.25 * (1 - ratio * 0.3);
-    var speed = (ri % 2 === 0 ? 1 : -1) * (0.5 + ri * 0.2);
+    var ratio = ri / (rings - 1);
+    // inner rings = bass, outer rings = treble
+    var bandInfluence = ri < 2 ? bass : (ri < 5 ? mid : treble);
+    var r = baseR * (1.2 + ri * 1.1) + bass * baseR * 1.8 * (1 - ratio * 0.6);
+    var pts = 80 + ri * 20;
+    var speed = (ri % 2 === 0 ? 1 : -1) * (0.4 + ri * 0.15);
+
+    // amplitude: bass rings distort more from bass, etc.
+    var ampBass   = ri < 3 ? bass   * r * 0.4 : bass   * r * 0.1;
+    var ampMid    = ri < 5 ? mid    * r * 0.25 : mid   * r * 0.05;
+    var ampTreble = treble * r * (0.05 + ratio * 0.2);
 
     ctx.beginPath();
     for (var i = 0; i <= pts; i++) {
       var angle = (i / pts) * Math.PI * 2;
-      var n = Math.sin(angle * (3 + ri) + t * speed) * 0.6
-            + Math.sin(angle * (5 + ri * 2) - t * speed * 1.3) * 0.4;
-      var rad = r + amp * n;
+      var n = Math.sin(angle * (2 + ri) + t * speed)      * ampBass
+            + Math.sin(angle * (4 + ri) - t * speed * 1.5) * ampMid
+            + Math.sin(angle * (9 + ri) + t * speed * 3.5) * ampTreble;
+      var rad = r + n;
       var x = cx + rad * Math.cos(angle);
       var y = cy + rad * Math.sin(angle);
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.closePath();
-    var alpha = (0.08 + vol * 0.25) * (1 - ratio * 0.4);
-    ctx.strokeStyle = 'rgba(247, 246, 243, ' + alpha + ')';
-    ctx.lineWidth = 0.5 + vol * 1.5 * (1 - ratio * 0.5);
+    var alpha = (0.06 + bandInfluence * 0.5) * (1 - ratio * 0.3);
+    // color: bass rings orange, treble rings white
+    var rr = Math.round(229 + (247 - 229) * ratio * treble);
+    var gg = Math.round(90  + (246 - 90)  * ratio * treble);
+    var bb = Math.round(28  + (243 - 28)  * ratio * treble);
+    ctx.strokeStyle = 'rgba(' + rr + ',' + gg + ',' + bb + ',' + alpha + ')';
+    ctx.lineWidth = 0.5 + bandInfluence * 2.5;
     ctx.stroke();
   }
 
-  // center dot
+  // bass pulse core
+  var coreR = 3 + bass * 30;
   ctx.beginPath();
-  ctx.arc(cx, cy, 2 + vol * 12, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(229, 90, 28, ' + (0.4 + vol * 0.6) + ')';
+  ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
+  var coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
+  coreGrad.addColorStop(0, 'rgba(229, 90, 28, ' + (0.5 + bass * 0.5) + ')');
+  coreGrad.addColorStop(1, 'rgba(229, 90, 28, 0)');
+  ctx.fillStyle = coreGrad;
   ctx.fill();
 }
 
-function drawWave(vol) {
-  var t = frame * 0.02;
-  var layers = 5;
+function drawWave(vol, bass, mid, treble) {
+  var t = frame * 0.018;
   var areaH = H - 108;
   var midY = 48 + areaH / 2;
 
-  for (var li = 0; li < layers; li++) {
-    var ratio = li / (layers - 1);
-    var amp = (50 + vol * 200) * (1 - ratio * 0.5);
-    var freq = 0.008 + ratio * 0.006;
-    var speed = (1 + ratio * 1.5) * (li % 2 === 0 ? 1 : -1);
-    var yOff = (ratio - 0.5) * areaH * 0.3;
+  // 3 band layers + 2 detail layers
+  var layers = [
+    { band: bass,   freq: 0.004, speed: 0.8,  yOff: 0,              lw: 2.5, alpha: 0.9 },
+    { band: bass,   freq: 0.007, speed: -0.6, yOff: areaH * 0.12,   lw: 1.5, alpha: 0.5 },
+    { band: mid,    freq: 0.012, speed: 1.4,  yOff: -areaH * 0.1,   lw: 1.2, alpha: 0.7 },
+    { band: mid,    freq: 0.02,  speed: -1.8, yOff: areaH * 0.22,   lw: 0.8, alpha: 0.4 },
+    { band: treble, freq: 0.035, speed: 3.0,  yOff: -areaH * 0.22,  lw: 0.5, alpha: 0.6 },
+    { band: treble, freq: 0.055, speed: -4.5, yOff: 0,              lw: 0.3, alpha: 0.3 }
+  ];
 
+  // draw fill for bass layer
+  var bassAmp = 30 + bass * 180;
+  ctx.beginPath();
+  ctx.moveTo(0, midY);
+  for (var x = 0; x <= W; x += 2) {
+    var y = midY
+      + Math.sin(x * 0.004 + t * 0.8)  * bassAmp
+      + Math.sin(x * 0.009 - t * 0.5)  * bassAmp * 0.4;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+  var fg = ctx.createLinearGradient(0, midY - bassAmp, 0, midY + bassAmp * 2);
+  fg.addColorStop(0, 'rgba(229, 90, 28, ' + (bass * 0.12) + ')');
+  fg.addColorStop(1, 'rgba(229, 90, 28, 0)');
+  ctx.fillStyle = fg;
+  ctx.fill();
+
+  // draw each layer
+  for (var li = 0; li < layers.length; li++) {
+    var L = layers[li];
+    var amp = 20 + L.band * (li < 2 ? 160 : (li < 4 ? 80 : 40));
     ctx.beginPath();
-    ctx.moveTo(0, midY + yOff);
+    ctx.moveTo(0, midY + L.yOff);
     for (var x = 0; x <= W; x += 2) {
-      var y = midY + yOff
-        + Math.sin(x * freq + t * speed) * amp * 0.5
-        + Math.sin(x * freq * 2.3 - t * speed * 0.7) * amp * 0.3
-        + Math.sin(x * freq * 0.5 + t * speed * 0.4) * amp * 0.2;
+      var y = midY + L.yOff
+        + Math.sin(x * L.freq + t * L.speed) * amp
+        + Math.sin(x * L.freq * 2.1 - t * L.speed * 0.7) * amp * 0.35
+        + Math.sin(x * L.freq * 0.4 + t * L.speed * 0.3) * amp * 0.2;
       ctx.lineTo(x, y);
     }
-    var alpha = (0.06 + vol * 0.2) * (1 - ratio * 0.5);
-    if (li === 0) {
-      ctx.lineTo(W, midY + yOff + areaH);
-      ctx.lineTo(0, midY + yOff + areaH);
-      ctx.closePath();
-      var grad = ctx.createLinearGradient(0, midY - amp, 0, midY + amp);
-      grad.addColorStop(0, 'rgba(229, 90, 28, ' + (alpha * 0.5) + ')');
-      grad.addColorStop(1, 'rgba(229, 90, 28, 0)');
-      ctx.fillStyle = grad;
-      ctx.fill();
-    }
-    ctx.strokeStyle = 'rgba(247, 246, 243, ' + alpha * 1.5 + ')';
-    ctx.lineWidth = 1 + (layers - li) * 0.3 + vol;
+    var a = (0.04 + L.band * L.alpha * 0.6);
+    // bass=orange, mid=warm, treble=white
+    var lc = li < 2 ? 'rgba(229,90,28,' : (li < 4 ? 'rgba(220,140,80,' : 'rgba(247,246,243,');
+    ctx.strokeStyle = lc + a + ')';
+    ctx.lineWidth = L.lw + L.band * 2.5;
     ctx.stroke();
   }
 }
@@ -747,30 +825,29 @@ function draw() {
   requestAnimationFrame(draw);
   frame++;
 
-  // get volume
-  if (micActive) {
-    volume = getVolume();
-  } else {
-    // idle animation when no mic
-    volume = 0;
-  }
+  // get spectrum
+  var spec = micActive ? getSpectrum() : { vol: 0, bass: 0, mid: 0, treble: 0, raw: [] };
+  volume = spec.vol;
 
-  // smooth
-  smoothVol += (volume - smoothVol) * 0.15;
+  // per-band smoothing — bass snappier, treble faster
+  smoothBass   += (spec.bass   - smoothBass)   * 0.25;
+  smoothMid    += (spec.mid    - smoothMid)     * 0.2;
+  smoothTreble += (spec.treble - smoothTreble)  * 0.3;
+  smoothVol    += (volume      - smoothVol)     * 0.18;
 
   // peak
   if (smoothVol > peakDecay) {
     peakDecay = smoothVol;
     peak = Math.round(smoothVol * 100);
   } else {
-    peakDecay *= 0.995;
+    peakDecay *= 0.994;
   }
 
   // update UI
   if (micActive) {
     document.getElementById('volDisplay').textContent = Math.round(smoothVol * 100);
     document.getElementById('peakDisplay').textContent = peak;
-    updateVU(smoothVol);
+    updateVU(smoothBass, smoothMid, smoothTreble);
   }
 
   // clear
@@ -786,13 +863,18 @@ function draw() {
   }
 
   // idle movement even without mic
-  var drawVol = micActive ? smoothVol : (Math.sin(frame * 0.01) * 0.04 + 0.04);
+  var idleT = frame * 0.012;
+  var idle = Math.sin(idleT) * 0.04 + 0.04;
+  var dVol    = micActive ? smoothVol    : idle;
+  var dBass   = micActive ? smoothBass   : idle * 0.8;
+  var dMid    = micActive ? smoothMid    : idle * 0.6;
+  var dTreble = micActive ? smoothTreble : idle * 0.4;
 
   switch (mode) {
-    case 'blob': drawBlob(drawVol); break;
-    case 'grid': drawGrid(drawVol); break;
-    case 'ring': drawRing(drawVol); break;
-    case 'wave': drawWave(drawVol); break;
+    case 'blob': drawBlob(dVol, dBass, dMid, dTreble); break;
+    case 'grid': drawGrid(dVol, dBass, dMid, dTreble); break;
+    case 'ring': drawRing(dVol, dBass, dMid, dTreble); break;
+    case 'wave': drawWave(dVol, dBass, dMid, dTreble); break;
   }
 }
 
