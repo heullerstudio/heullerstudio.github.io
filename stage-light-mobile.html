@@ -1,0 +1,1829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Stage Light</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{width:100%;height:100%;background:#000;overflow:hidden;}
+    canvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;}
+
+    /* ── HUD shell ── */
+    .hud{
+      position:fixed;bottom:0;left:0;right:0;
+      background:rgba(0,0,0,0.88);
+      border-top:1px solid rgba(255,255,255,0.1);
+      transition:opacity 0.8s;z-index:100;
+      font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+    }
+    .hud.hide{opacity:0.08;}
+
+    /* ── main bar (always visible) ── */
+    .hud-bar{
+      display:flex;align-items:stretch;height:48px;overflow:hidden;
+    }
+
+    /* ── settings drawer (hidden by default, slides up) ── */
+    .hud-drawer{
+      display:none;
+      flex-direction:column;
+      padding:10px 12px 8px;
+      gap:8px;
+      border-top:1px solid rgba(255,255,255,0.08);
+    }
+    .hud-drawer.open{ display:flex; }
+
+    /* ── shared button styles ── */
+    .btn{
+      background:none;border:1px solid rgba(255,255,255,0.2);
+      color:rgba(255,255,255,0.4);font-family:inherit;
+      font-size:9px;letter-spacing:0.14em;text-transform:uppercase;
+      padding:0 10px;height:30px;cursor:pointer;transition:all 0.15s;
+      display:flex;align-items:center;gap:5px;white-space:nowrap;
+    }
+    .btn:hover{border-color:#fff;color:#fff;}
+    .btn.on{border-color:#fff;color:#fff;background:rgba(255,255,255,0.08);}
+    .dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0;}
+    .btn.on .dot{animation:pulse 0.9s ease-in-out infinite;}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.15}}
+
+    /* ── tab-style buttons ── */
+    .stab{
+      background:none;border:none;
+      border-right:1px solid rgba(255,255,255,0.07);
+      color:rgba(255,255,255,0.28);font-family:inherit;
+      font-size:9px;letter-spacing:0.14em;text-transform:uppercase;
+      padding:0 12px;cursor:pointer;transition:all 0.15s;height:100%;
+      white-space:nowrap;flex-shrink:0;
+    }
+    .stab:hover{color:rgba(255,255,255,0.7);}
+    .stab.on{color:#fff;background:rgba(255,255,255,0.06);}
+
+    /* ── source panel ── */
+    .spanel{display:none;align-items:center;padding:0 8px;gap:6px;
+            border-right:1px solid rgba(255,255,255,0.07);}
+    .spanel.show{display:flex;}
+
+    /* ── meters ── */
+    .mbar{display:flex;align-items:flex-end;gap:2px;height:28px;padding:0 6px;
+          border-right:1px solid rgba(255,255,255,0.07);}
+    .mb{width:4px;background:rgba(255,255,255,0.08);border-radius:1px;transition:height 0.05s;}
+    .mlbl{font-size:7px;letter-spacing:0.18em;text-transform:uppercase;
+          color:rgba(255,255,255,0.18);padding:0 3px;white-space:nowrap;}
+
+    /* ── sliders ── */
+    input[type=range]{-webkit-appearance:none;appearance:none;
+      background:rgba(255,255,255,0.15);border-radius:2px;outline:none;height:2px;}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;
+      border-radius:50%;background:#fff;cursor:pointer;}
+
+    /* ── slider row ── */
+    .srow{display:flex;align-items:center;gap:8px;width:100%;}
+    .srow .mlbl{width:68px;flex-shrink:0;}
+    .srow input{flex:1;min-width:60px;}
+    .srow .val{font-size:7px;letter-spacing:0.14em;color:rgba(255,255,255,0.5);
+               width:26px;text-align:right;flex-shrink:0;}
+
+    /* ── fullscreen btn ── */
+    .fsbtn{
+      margin-left:auto;background:none;border:none;
+      border-left:1px solid rgba(255,255,255,0.07);
+      color:rgba(255,255,255,0.3);font-family:inherit;font-size:9px;
+      letter-spacing:0.14em;text-transform:uppercase;padding:0 14px;
+      cursor:pointer;transition:color 0.15s;height:100%;white-space:nowrap;
+    }
+    .fsbtn:hover{color:#fff;}
+
+    /* ── settings toggle ── */
+    .settbtn{
+      background:none;border:none;
+      border-left:1px solid rgba(255,255,255,0.07);
+      color:rgba(255,255,255,0.3);font-family:inherit;font-size:9px;
+      letter-spacing:0.14em;text-transform:uppercase;padding:0 14px;
+      cursor:pointer;transition:all 0.15s;height:100%;flex-shrink:0;
+    }
+    .settbtn:hover{color:#fff;}
+    .settbtn.on{color:#fff;background:rgba(255,255,255,0.06);}
+
+    /* ── MOBILE overrides ── */
+    @media(max-width:600px){
+      .hud-bar{ height:44px; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; }
+      .hud-bar::-webkit-scrollbar{ display:none; }
+      /* hide meters on mobile — drawer has sliders instead */
+      .mbar, .mbar+.mlbl, .mlbl:not(.drawer-lbl){ display:none; }
+      .stab{ padding:0 10px; font-size:8px; }
+      .fsbtn{ padding:0 10px; }
+      .settbtn{ padding:0 10px; }
+    }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hud" id="hud">
+
+  <!-- Settings drawer (above the bar, slides open) -->
+  <div class="hud-drawer" id="hudDrawer">
+    <div class="srow">
+      <span class="mlbl drawer-lbl" style="width:68px;flex-shrink:0;">Sensitivity</span>
+      <input type="range" id="slSens" min="0.2" max="10" step="0.1" value="5"
+        oninput="setSens(this.value);document.getElementById('vSens').textContent=parseFloat(this.value).toFixed(1)"
+        style="accent-color:#fff;cursor:pointer;">
+      <span id="vSens" class="val">5.0</span>
+    </div>
+    <div class="srow">
+      <span class="mlbl drawer-lbl" style="width:68px;flex-shrink:0;">Speed</span>
+      <input type="range" id="slSpeed" min="0.2" max="5" step="0.05" value="2"
+        oninput="setSpeed(this.value);document.getElementById('vSpeed').textContent=parseFloat(this.value).toFixed(1)"
+        style="accent-color:#fff;cursor:pointer;">
+      <span id="vSpeed" class="val">2.0</span>
+    </div>
+    <div class="srow">
+      <span class="mlbl drawer-lbl" style="width:68px;flex-shrink:0;">Color</span>
+      <input type="range" id="slColor" min="0" max="360" step="1" value="0"
+        oninput="setColor(this.value);document.getElementById('vColor').textContent=this.value+'°'"
+        style="accent-color:#fff;cursor:pointer;">
+      <span id="vColor" class="val">0°</span>
+      <button class="btn" id="randBtn" onclick="toggleRandColor()" style="margin-left:6px;">&#9679; Auto</button>
+    </div>
+  </div>
+
+  <!-- Main bar -->
+  <div class="hud-bar">
+
+    <button class="stab on"  id="stab-mic"  onclick="selSrc('mic')">Mic</button>
+    <button class="stab"     id="stab-tab"  onclick="selSrc('tab')">Tab</button>
+    <button class="stab"     id="stab-file" onclick="selSrc('file')">File</button>
+
+    <div class="spanel show" id="sp-mic">
+      <button class="btn" id="micBtn" onclick="toggleMic()">
+        <span class="dot"></span><span id="micLbl">Enable</span>
+      </button>
+    </div>
+    <div class="spanel" id="sp-tab">
+      <button class="btn" id="tabBtn" onclick="toggleTab()">
+        <span class="dot"></span><span id="tabLbl">Share Tab</span>
+      </button>
+    </div>
+    <div class="spanel" id="sp-file">
+      <label class="btn" style="cursor:pointer;">
+        <input type="file" accept="audio/*" id="fInp" onchange="loadFile(this)" style="display:none;">
+        <span class="dot" id="fDot"></span><span id="fLbl">Load</span>
+      </label>
+      <button class="btn" id="pBtn" onclick="togglePlay()" style="display:none;">Play</button>
+    </div>
+
+    <button class="stab on" id="m-storm"    onclick="setMode('storm')">Storm</button>
+    <button class="stab"    id="m-aura"     onclick="setMode('aura')">Aura</button>
+    <button class="stab"    id="m-bubbles"  onclick="setMode('bubbles')">Bubbles</button>
+    <button class="stab"    id="m-wave"     onclick="setMode('wave')">Wave</button>
+
+    <span class="mlbl" style="padding:0 4px;align-self:center;">Bass</span>
+    <div class="mbar" id="mBass"></div>
+    <span class="mlbl" style="padding:0 4px;align-self:center;">Mid</span>
+    <div class="mbar" id="mMid"></div>
+    <span class="mlbl" style="padding:0 4px;align-self:center;">Treble</span>
+    <div class="mbar" id="mTreb"></div>
+
+    <button class="settbtn" id="settBtn" onclick="toggleDrawer()">&#9881; Settings</button>
+    <button class="fsbtn" onclick="toggleFS()">&#x26F6;</button>
+  </div>
+
+</div>
+<script>
+var C = document.getElementById('c'), ctx = C.getContext('2d');
+var COLOR_HUE    = 0;   /* global hue shift 0-360, applied to all visuals */
+var RAND_COLOR   = false;
+var RAND_HUE_VEL = 0;
+var RAND_TARGET  = 0;
+var SENS  = 1.0;   /* sensitivity multiplier — applied to beatThresh */
+var SPEED = 1.0;   /* speed multiplier — applied to particle velocity and life */
+var W, H, CX, CY;
+
+/* ── AUDIO ───────────────────────────────────────────────── */
+var aCtx, analyser, fData;
+var micSrc, tabSrc, tabStream, fileAudio, fileSrc;
+var micOn=false, tabOn=false, fileOn=false;
+
+var bass=0,mid=0,treb=0;
+var sBass=0,sMid=0,sTreb=0;
+var sBass2=0;            /* delayed bass copy */
+var beatVal=0;           /* current beat strength 0-1 */
+var beatDecay=0;         /* peak holder that decays */
+var prevBass=0;          /* previous frame bass for onset detection */
+var beatThresh=0.30;     /* minimum rise to count as a beat */
+var beatSmooth=0;        /* smoothed beat signal for driving visuals */
+var bassHistory=[];      /* ring buffer for delay */
+var BASS_DELAY=14;       /* frames ~230ms at 60fps */
+
+function hasAudio(){ return micOn||tabOn||fileOn; }
+
+function initAudio(){
+  if(aCtx) return;
+  aCtx = new (window.AudioContext||window.webkitAudioContext)();
+  analyser = aCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  analyser.smoothingTimeConstant = 0.7;
+  fData = new Uint8Array(analyser.frequencyBinCount);
+}
+
+function readBands(){
+  if(!analyser||!hasAudio()) return;
+  analyser.getByteFrequencyData(fData);
+  var n=fData.length, b=0,m=0,t=0;
+  var bE=Math.floor(n*0.04), mE=Math.floor(n*0.28);
+  for(var i=0;     i<bE; i++) b+=fData[i];
+  for(var i=bE;    i<mE; i++) m+=fData[i];
+  for(var i=mE;    i<n;  i++) t+=fData[i];
+  bass = b/(bE*255);
+  mid  = m/((mE-bE)*255);
+  treb = t/((n-mE)*255);
+}
+
+/* ── SOURCES ─────────────────────────────────────────────── */
+window.selSrc = function(s){
+  ['mic','tab','file'].forEach(function(x){
+    document.getElementById('stab-'+x).classList.toggle('on',x===s);
+    document.getElementById('sp-'+x).classList.toggle('show',x===s);
+  });
+};
+
+window.toggleMic = function(){
+  if(micOn){
+    if(micSrc) micSrc.disconnect();
+    micOn=false;
+    document.getElementById('micBtn').classList.remove('on');
+    document.getElementById('micLbl').textContent='Enable';
+  } else {
+    navigator.mediaDevices.getUserMedia({audio:true,video:false}).then(function(st){
+      initAudio(); if(aCtx.state==='suspended') aCtx.resume();
+      micSrc = aCtx.createMediaStreamSource(st);
+      micSrc.connect(analyser);
+      micOn=true;
+      document.getElementById('micBtn').classList.add('on');
+      document.getElementById('micLbl').textContent='Live';
+    }).catch(function(){ alert('Mic denied.'); });
+  }
+};
+
+window.toggleTab = function(){
+  if(tabOn){
+    if(tabStream) tabStream.getTracks().forEach(function(t){t.stop();});
+    if(tabSrc) tabSrc.disconnect();
+    tabSrc=null; tabStream=null; tabOn=false;
+    document.getElementById('tabBtn').classList.remove('on');
+    document.getElementById('tabLbl').textContent='Share Tab';
+    return;
+  }
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getDisplayMedia){
+    alert('Not supported. Use Chrome or Edge.'); return;
+  }
+  navigator.mediaDevices.getDisplayMedia({video:true, audio:true}).then(function(st){
+    var audioTracks = st.getAudioTracks();
+    if(!audioTracks.length){
+      alert('No audio detected. Tick "Share tab audio" in the dialog.');
+      st.getTracks().forEach(function(t){t.stop();}); return;
+    }
+    initAudio(); if(aCtx.state==='suspended') aCtx.resume();
+    st.getVideoTracks().forEach(function(t){t.stop();});
+    tabStream = st;
+    tabSrc = aCtx.createMediaStreamSource(st);
+    tabSrc.connect(analyser);
+    tabOn=true;
+    document.getElementById('tabBtn').classList.add('on');
+    document.getElementById('tabLbl').textContent='Stop';
+  }).catch(function(e){
+    if(e.name!=='NotAllowedError') alert('Tab capture failed: '+e.message);
+  });
+};
+
+window.loadFile = function(inp){
+  if(!inp.files.length) return;
+  var f=inp.files[0];
+  document.getElementById('fLbl').textContent=f.name.length>14?f.name.slice(0,12)+'..':f.name;
+  document.getElementById('fDot').style.background='#fff';
+  if(fileAudio){fileAudio.pause();fileAudio.src='';fileSrc=null;}
+  fileAudio=new Audio(); fileAudio.src=URL.createObjectURL(f); fileAudio.loop=true;
+  fileOn=false;
+  var pb=document.getElementById('pBtn'); pb.style.display='flex'; pb.textContent='Play'; pb.classList.remove('on');
+};
+
+window.togglePlay = function(){
+  if(!fileAudio) return;
+  initAudio(); if(aCtx.state==='suspended') aCtx.resume();
+  if(!fileSrc){
+    fileSrc=aCtx.createMediaElementSource(fileAudio);
+    fileSrc.connect(analyser); analyser.connect(aCtx.destination);
+  }
+  if(fileOn){
+    fileAudio.pause(); fileOn=false;
+    document.getElementById('pBtn').textContent='Play';
+    document.getElementById('pBtn').classList.remove('on');
+  } else {
+    fileAudio.play(); fileOn=true;
+    document.getElementById('pBtn').textContent='Pause';
+    document.getElementById('pBtn').classList.add('on');
+  }
+};
+
+/* ── METERS ──────────────────────────────────────────────── */
+function makeMeter(id,n){
+  var el=document.getElementById(id), bars=[];
+  for(var i=0;i<n;i++){
+    var b=document.createElement('div'); b.className='mb'; b.style.height='4px';
+    el.appendChild(b); bars.push(b);
+  }
+  return bars;
+}
+var MB=makeMeter('mBass',8), MM=makeMeter('mMid',8), MT=makeMeter('mTreb',8);
+
+function updateMeters(){
+  function up(bars,v){
+    var n=bars.length;
+    for(var i=0;i<n;i++){
+      var on=v>i/n;
+      bars[i].style.height = on?(Math.round(6+((i/n)*22))+'px'):'3px';
+      bars[i].style.background = on?'#fff':'rgba(255,255,255,0.07)';
+    }
+  }
+  up(MB,sBass); up(MM,sMid); up(MT,sTreb);
+}
+
+/* ── HUD AUTO HIDE ───────────────────────────────────────── */
+/* HUD: fades to dim when idle but NEVER blocks clicks */
+var hTimer;
+function showHud(){
+  document.getElementById('hud').classList.remove('hide');
+  clearTimeout(hTimer);
+  hTimer=setTimeout(function(){document.getElementById('hud').classList.add('hide');},6000);
+}
+document.addEventListener('mousemove', showHud);
+document.addEventListener('touchstart', showHud);
+document.getElementById('hud').addEventListener('mouseover', showHud);
+document.getElementById('hud').addEventListener('click', showHud);
+showHud();
+
+/* ── RESIZE ──────────────────────────────────────────────── */
+function resize(){
+  W=C.width=window.innerWidth;
+  H=C.height=window.innerHeight;
+  CX=W/2; CY=H/2;
+  initPools();
+}
+window.addEventListener('resize',resize);
+
+/* ── MODE ────────────────────────────────────────────────── */
+var mode='storm';
+window.setSens = function(v){
+  SENS = parseFloat(v);
+};
+window.setColor = function(v){
+  COLOR_HUE = parseFloat(v);
+  document.getElementById('slColor').value = v;
+  document.getElementById('vColor').textContent = Math.round(v)+'°';
+};
+window.toggleRandColor = function(){
+  RAND_COLOR = !RAND_COLOR;
+  var btn = document.getElementById('randBtn');
+  btn.classList.toggle('on', RAND_COLOR);
+  if(RAND_COLOR) RAND_TARGET = Math.random()*360;
+};
+window.setSpeed = function(v){
+  SPEED = 0.2 + (parseFloat(v)-1) * (3.0/9.0); /* map 1-10 to 0.2-3.2 */
+};
+window.setMode=function(m){
+  mode=m;
+  document.querySelectorAll('.stab[id^="m-"]').forEach(function(b){
+    b.classList.toggle('on', b.id==='m-'+m);
+  });
+  initPools();
+};
+window.toggleFS=function(){
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();
+  else document.exitFullscreen&&document.exitFullscreen();
+};
+window.toggleDrawer=function(){
+  var d=document.getElementById('hudDrawer');
+  var b=document.getElementById('settBtn');
+  d.classList.toggle('open');
+  b.classList.toggle('on',d.classList.contains('open'));
+};
+
+/* ═══════════════════════════════════════════════════════════
+   3-D PARTICLE ENGINE
+   Perspective projection: screen_x = CX + x*(FL/z)
+   FL = focal length. Larger FL = less perspective distortion.
+   Particles live in a cube roughly ±1000 units.
+   ═══════════════════════════════════════════════════════════ */
+var FL = 600; // focal length
+
+function project(x,y,z){
+  var s = FL / (FL + z);
+  return { x: CX + x*s, y: CY + y*s, s: s };
+}
+
+/* ── PARTICLE POOLS ──────────────────────────────────────── */
+/* Three separate pools for bass / mid / treble.
+   Each pool uses a different region of 3D space and behavior.
+
+   BASS  — large slow deep particles. Z range: 200–800 (far back).
+           Respond to bass: explode outward, large radius.
+   MID   — medium particles mid-field. Z range: -100–300.
+           Respond to mid: lateral sweep, medium radius.
+   TREBLE— tiny fast particles close. Z range: -600–100 (front).
+           Respond to treble: rapid scatter, tiny bright dots.
+*/
+
+var POOLS = { bass:[], bass2:[], mid:[], treb:[] };
+var POOL_N = { bass:70, bass2:70, mid:140, treb:260 };
+
+function rnd(a,b){ return a+(b-a)*Math.random(); }
+function rndSign(){ return Math.random()<0.5?1:-1; }
+
+function mkBassParticle(){
+  var a=Math.random()*Math.PI*2;
+  var r=rnd(30,550);
+  return {
+    x: Math.cos(a)*r, y: rnd(-H*0.55, H*0.55),
+    z: rnd(200, 900),
+    vx: rnd(-0.4,0.4), vy: rnd(-0.6,-0.05),
+    vz: rnd(-0.5,0.5),
+    life: Math.random(), maxLife: rnd(0.18,0.38),
+    baseR: rnd(22,58),
+    band:'bass'
+  };
+}
+function mkMidParticle(){
+  var a=Math.random()*Math.PI*2;
+  var r=rnd(20,380);
+  return {
+    x: Math.cos(a)*r, y: rnd(-H*0.5, H*0.5),
+    z: rnd(-100, 350),
+    vx: rnd(-1.5,1.5)*rndSign(), vy: rnd(-1.0,0.3),
+    vz: rnd(-0.8,0.8),
+    life: Math.random(), maxLife: rnd(0.12,0.25),
+    baseR: rnd(5,13),
+    band:'mid'
+  };
+}
+function mkTrebParticle(){
+  var a=Math.random()*Math.PI*2;
+  var r=rnd(0,280);
+  return {
+    x: Math.cos(a)*r, y: rnd(-H*0.4, H*0.4),
+    z: rnd(-600, 50),
+    vx: rnd(-3.5,3.5), vy: rnd(-3.5,1),
+    vz: rnd(-2.5,2.5),
+    life: Math.random(), maxLife: rnd(0.06,0.14),
+    baseR: rnd(1.0,3.0),
+    band:'treb'
+  };
+}
+
+function mkBass2Particle(){
+  /* bass2 lives in different spatial region — more to the sides and upper half */
+  var a=Math.random()*Math.PI*2;
+  var r=rnd(80,620);
+  return {
+    x: Math.cos(a)*r, y: rnd(-H*0.7, H*0.15),
+    z: rnd(100, 850),
+    vx: rnd(-0.5,0.5), vy: rnd(-0.7,-0.02),
+    vz: rnd(-0.5,0.5),
+    life: Math.random(), maxLife: rnd(0.18,0.35),
+    baseR: rnd(16,44),
+    band:'bass2'
+  };
+}
+
+function initPools(){
+  POOLS.bass=[];POOLS.bass2=[];POOLS.mid=[];POOLS.treb=[];
+  for(var i=0;i<POOL_N.bass;i++)  POOLS.bass.push(mkBassParticle());
+  for(var i=0;i<POOL_N.bass2;i++) POOLS.bass2.push(mkBass2Particle());
+  for(var i=0;i<POOL_N.mid;i++)   POOLS.mid.push(mkMidParticle());
+  for(var i=0;i<POOL_N.treb;i++)  POOLS.treb.push(mkTrebParticle());
+}
+
+/* ── PARTICLE UPDATE ─────────────────────────────────────── */
+function updateParticle(p, bandVal, spawnFn, speedMul, forceMul){
+  p.life += (0.018 + bandVal*0.055) * SPEED;
+
+  /* band force — pushes particles outward / upward on loud signals */
+  var force = bandVal * forceMul;
+  p.vx += (p.x > 0 ? force : -force) * 0.04;
+  p.vy -= force * 0.06;  /* upward */
+
+  /* speed scale */
+  p.x  += p.vx * speedMul * SPEED * (0.8 + bandVal*2.5);
+  p.y  += p.vy * speedMul * SPEED * (0.8 + bandVal*2.5);
+  p.z  += p.vz * speedMul;
+
+  /* damping */
+  p.vx *= 0.97; p.vy *= 0.97; p.vz *= 0.98;
+
+  if(p.life >= p.maxLife) return spawnFn();
+  return p;
+}
+
+/* ── DRAW PARTICLE — emissive crisp sphere ───────────────── */
+/*
+   Emissive look = particle is its own light source.
+   Centre is pure bright colour, edge fades to BLACK (not transparent).
+   This gives the lit-sphere-against-black effect from the reference.
+   Dark unlit spheres = particles below threshold, drawn nearly black
+   with just a faint rim — creates contrast clusters.
+*/
+function drawParticle(p, bandVal, maxBandVal){
+  var pr = project(p.x, p.y, p.z + FL);
+  if(pr.x<-60||pr.x>W+60||pr.y<-60||pr.y>H+60) return;
+
+  var lifeFrac = p.life / p.maxLife;
+  /* sharp bloom: ramp up in first 20%, peak, then hard fall from 45% onward */
+  var envelope = lifeFrac < 0.20 ? lifeFrac/0.20
+               : lifeFrac > 0.45 ? Math.pow((1-lifeFrac)/0.55, 1.6)
+               : 1.0;
+  envelope = Math.max(0, envelope);
+
+  /* ── size ── */
+  var r = p.baseR * pr.s;
+  /* size: band drives peak size, envelope drives bloom/shrink over lifetime */
+  if(p.band==='bass')       r *= envelope * (1.5 + bandVal * 45.0);
+  else if(p.band==='bass2') r *= envelope * (1.2 + bandVal * 25.0);
+  else if(p.band==='mid')   r *= envelope * (1.0 + bandVal * 11.0);
+  else                      r *= envelope * (1.0 + bandVal * 5.0);
+  if(r < 1.0) return;
+
+  /* ── brightness threshold ──
+     Below threshold = draw as DARK sphere (the black balls in reference).
+     Above = emissive lit sphere.
+     This hard split is what creates the high contrast.
+  */
+  var threshold;
+  if(p.band==='bass'||p.band==='bass2') threshold = 0.18;
+  else if(p.band==='mid')               threshold = 0.12;
+  else                                  threshold = 0.08;
+
+  var lit = (bandVal * envelope) > threshold;
+
+  /* ── colour per band ──
+     bass  = white/near-white (dominant, neutral)
+     bass2 = cool blue-white (offset echo)
+     mid   = warm white / slight grey
+     treb  = pure white tiny sparks
+  */
+  var cr,cg,cb; /* emissive colour */
+  if(p.band==='bass')       { cr=255; cg=255; cb=255; }
+  else if(p.band==='bass2') { cr=180; cg=220; cb=255; }  /* blue tint */
+  else if(p.band==='mid')   { cr=255; cg=245; cb=220; }  /* warm */
+  else                      { cr=255; cg=255; cb=255; }
+
+  var hx = pr.x - r*0.30;
+  var hy = pr.y - r*0.26;
+
+  if(lit){
+    var brightness = Math.min(1, bandVal * envelope * 1.8);
+    /* emissive flat white — solid bright disc, tiny soft falloff at edge only */
+    var g = ctx.createRadialGradient(pr.x, pr.y, r*0.65, pr.x, pr.y, r);
+    g.addColorStop(0,   'rgba(255,255,255,'+brightness.toFixed(3)+')');
+    g.addColorStop(1.0, 'rgba(0,0,0,0)');
+
+    /* flat fill first */
+    ctx.beginPath();
+    ctx.arc(pr.x, pr.y, r*0.66, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,'+brightness.toFixed(3)+')';
+    ctx.fill();
+
+    /* soft edge falloff */
+    ctx.beginPath();
+    ctx.arc(pr.x, pr.y, r, 0, Math.PI*2);
+    ctx.fillStyle = g;
+    ctx.fill();
+  } else {
+    /* DARK sphere — nearly black with a faint cool rim */
+    var darkO = 0.55 + pr.s*0.2;  /* closer = slightly more visible */
+    var g = ctx.createRadialGradient(hx, hy, 0, pr.x, pr.y, r);
+    g.addColorStop(0,    'rgba(18,18,20,'+darkO.toFixed(3)+')');
+    g.addColorStop(0.60, 'rgba(10,10,12,'+darkO.toFixed(3)+')');
+    g.addColorStop(0.88, 'rgba(40,50,70,'+(darkO*0.4).toFixed(3)+')');  /* faint rim */
+    g.addColorStop(1.0,  'rgba(0,0,0,0)');
+    ctx.beginPath();
+    ctx.arc(pr.x, pr.y, r, 0, Math.PI*2);
+    ctx.fillStyle = g;
+    ctx.fill();
+  }
+}
+
+/* ── MODES ───────────────────────────────────────────────── */
+
+/* STORM — particles fly from depth toward viewer in all directions */
+function modeStorm(){
+  /* bass: slow massive particles rising from below */
+  for(var i=0;i<POOLS.bass.length;i++){
+    var p=POOLS.bass[i];
+    POOLS.bass[i]=updateParticle(p, sBass, mkBassParticle, 1.0, 1.8);
+    drawParticle(POOLS.bass[i], sBass, 1);
+  }
+  /* mid: lateral sweep */
+  for(var i=0;i<POOLS.mid.length;i++){
+    var p=POOLS.mid[i];
+    POOLS.mid[i]=updateParticle(p, sMid, mkMidParticle, 1.2, 1.5);
+    drawParticle(POOLS.mid[i], sMid, 1);
+  }
+  /* bass2: delayed echo of bass in upper region */
+  for(var i=0;i<POOLS.bass2.length;i++){
+    POOLS.bass2[i]=updateParticle(POOLS.bass2[i], sBass2, mkBass2Particle, 1.0, 1.8);
+    drawParticle(POOLS.bass2[i], sBass2, 1);
+  }
+  /* treble: fast small front particles */
+  for(var i=0;i<POOLS.treb.length;i++){
+    var p=POOLS.treb[i];
+    POOLS.treb[i]=updateParticle(p, sTreb, mkTrebParticle, 1.8, 1.2);
+    drawParticle(POOLS.treb[i], sTreb, 1);
+  }
+}
+
+/* TUNNEL — beat blasts particles toward viewer */
+function modeTunnel(){
+  var bv  = beatVal;
+  var bv2 = Math.min(beatVal*0.6, sBass2);
+  var mv  = sMid  * (0.15 + beatSmooth * 0.85);
+  var tv  = sTreb * (0.1  + beatSmooth * 0.9);
+  for(var i=0;i<POOLS.bass.length;i++){
+    var p=POOLS.bass[i];
+    p.vz -= 4.0 + bv*18;
+    if(p.z < -FL*0.8){
+      var np=mkBassParticle();
+      np.x=rnd(-W*0.5,W*0.5); np.y=rnd(-H*0.5,H*0.5);
+      np.z=rnd(600,1200); np.vz=rnd(-1,0);
+      POOLS.bass[i]=np; continue;
+    }
+    POOLS.bass[i]=updateParticle(p, bv, function(){
+      var np=mkBassParticle();
+      np.x=rnd(-W*0.4,W*0.4); np.y=rnd(-H*0.4,H*0.4);
+      np.z=rnd(700,1200); np.vz=rnd(-0.5,0);
+      return np;
+    }, 0.5, 0.5);
+    drawParticle(POOLS.bass[i], bv, 1);
+  }
+  for(var i=0;i<POOLS.bass2.length;i++){
+    var p=POOLS.bass2[i];
+    p.vz -= 3.0 + bv2*14;
+    if(p.z < -FL*0.8){
+      var np=mkBass2Particle();
+      np.x=rnd(-W*0.45,W*0.45); np.y=rnd(-H*0.45,H*0.45);
+      np.z=rnd(600,1100); np.vz=rnd(-0.8,0);
+      POOLS.bass2[i]=np; continue;
+    }
+    POOLS.bass2[i]=updateParticle(p, bv2, function(){
+      var np=mkBass2Particle();
+      np.x=rnd(-W*0.4,W*0.4); np.y=rnd(-H*0.4,H*0.4);
+      np.z=rnd(600,1100); np.vz=rnd(-0.5,0);
+      return np;
+    }, 0.5, 0.5);
+    drawParticle(POOLS.bass2[i], bv2, 1);
+  }
+  for(var i=0;i<POOLS.mid.length;i++){
+    POOLS.mid[i]=updateParticle(POOLS.mid[i], mv, mkMidParticle, 1.2, 1.0);
+    drawParticle(POOLS.mid[i], mv, 1);
+  }
+  for(var i=0;i<POOLS.treb.length;i++){
+    POOLS.treb[i]=updateParticle(POOLS.treb[i], tv, mkTrebParticle, 2.0, 0.8);
+    drawParticle(POOLS.treb[i], tv, 1);
+  }
+}
+
+/* PULSE — beat triggers concentric ring explosions */
+var pulseRings=[];
+function modePulse(){
+  if(beatVal > 0.3 && (pulseRings.length===0 || pulseRings[pulseRings.length-1].age > 6)){
+    pulseRings.push({r:0, maxR:Math.min(W,H)*0.55, strength:beatVal, age:0});
+    if(sBass2 > 0.12) pulseRings.push({r:0, maxR:Math.min(W,H)*0.42, strength:sBass2*0.7, age:0, echo:true});
+  }
+  /* draw rings */
+  for(var ri=pulseRings.length-1;ri>=0;ri--){
+    var rg=pulseRings[ri];
+    rg.r += 6 + rg.strength*14;
+    rg.age++;
+    var frac=rg.r/rg.maxR;
+    var alpha=(1-frac)*(rg.echo?0.4:0.85)*rg.strength;
+    if(alpha>0.01){
+      ctx.beginPath();
+      ctx.arc(CX, CY, rg.r, 0, Math.PI*2);
+      ctx.strokeStyle='rgba(255,255,255,'+alpha.toFixed(3)+')';
+      ctx.lineWidth = rg.echo ? (1+rg.strength*3) : (2+rg.strength*8);
+      ctx.stroke();
+    }
+    if(rg.r>=rg.maxR) pulseRings.splice(ri,1);
+  }
+  /* particles in background */
+  var bv  = beatVal;
+  var bv2 = Math.min(beatVal*0.6, sBass2);
+  var mv  = sMid  * (0.15 + beatSmooth * 0.85);
+  var tv  = sTreb * (0.1  + beatSmooth * 0.9);
+  for(var i=0;i<POOLS.bass.length;i++){
+    POOLS.bass[i]=updateParticle(POOLS.bass[i], bv, mkBassParticle, 0.8, 2.0);
+    drawParticle(POOLS.bass[i], bv, 1);
+  }
+  for(var i=0;i<POOLS.bass2.length;i++){
+    POOLS.bass2[i]=updateParticle(POOLS.bass2[i], bv2, mkBass2Particle, 0.8, 1.8);
+    drawParticle(POOLS.bass2[i], bv2, 1);
+  }
+  for(var i=0;i<POOLS.mid.length;i++){
+    POOLS.mid[i]=updateParticle(POOLS.mid[i], mv, mkMidParticle, 1.0, 1.2);
+    drawParticle(POOLS.mid[i], mv, 1);
+  }
+  for(var i=0;i<POOLS.treb.length;i++){
+    POOLS.treb[i]=updateParticle(POOLS.treb[i], tv, mkTrebParticle, 1.5, 0.8);
+    drawParticle(POOLS.treb[i], tv, 1);
+  }
+}
+
+window.selSrc = function(s){
+  ['mic','tab','file'].forEach(function(x){
+    document.getElementById('stab-'+x).classList.toggle('on',x===s);
+    document.getElementById('sp-'+x).classList.toggle('show',x===s);
+  });
+};
+
+window.toggleMic = function(){
+  if(micOn){
+    if(micSrc) micSrc.disconnect();
+    micOn=false;
+    document.getElementById('micBtn').classList.remove('on');
+    document.getElementById('micLbl').textContent='Enable';
+  } else {
+    navigator.mediaDevices.getUserMedia({audio:true,video:false}).then(function(st){
+      initAudio(); if(aCtx.state==='suspended') aCtx.resume();
+      micSrc = aCtx.createMediaStreamSource(st);
+      micSrc.connect(analyser);
+      micOn=true;
+      document.getElementById('micBtn').classList.add('on');
+      document.getElementById('micLbl').textContent='Live';
+    }).catch(function(){ alert('Mic denied.'); });
+  }
+};
+
+window.toggleTab = function(){
+  if(tabOn){
+    if(tabStream) tabStream.getTracks().forEach(function(t){t.stop();});
+    if(tabSrc) tabSrc.disconnect();
+    tabSrc=null; tabStream=null; tabOn=false;
+    document.getElementById('tabBtn').classList.remove('on');
+    document.getElementById('tabLbl').textContent='Share Tab';
+    return;
+  }
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getDisplayMedia){
+    alert('Not supported. Use Chrome or Edge.'); return;
+  }
+  navigator.mediaDevices.getDisplayMedia({video:true, audio:true}).then(function(st){
+    var audioTracks = st.getAudioTracks();
+    if(!audioTracks.length){
+      alert('No audio detected. Tick "Share tab audio" in the dialog.');
+      st.getTracks().forEach(function(t){t.stop();}); return;
+    }
+    initAudio(); if(aCtx.state==='suspended') aCtx.resume();
+    st.getVideoTracks().forEach(function(t){t.stop();});
+    tabStream = st;
+    tabSrc = aCtx.createMediaStreamSource(st);
+    tabSrc.connect(analyser);
+    tabOn=true;
+    document.getElementById('tabBtn').classList.add('on');
+    document.getElementById('tabLbl').textContent='Stop';
+  }).catch(function(e){
+    if(e.name!=='NotAllowedError') alert('Tab capture failed: '+e.message);
+  });
+};
+
+window.loadFile = function(inp){
+  if(!inp.files.length) return;
+  var f=inp.files[0];
+  document.getElementById('fLbl').textContent=f.name.length>14?f.name.slice(0,12)+'..':f.name;
+  document.getElementById('fDot').style.background='#fff';
+  if(fileAudio){fileAudio.pause();fileAudio.src='';fileSrc=null;}
+  fileAudio=new Audio(); fileAudio.src=URL.createObjectURL(f); fileAudio.loop=true;
+  fileOn=false;
+  var pb=document.getElementById('pBtn'); pb.style.display='flex'; pb.textContent='Play'; pb.classList.remove('on');
+};
+
+window.togglePlay = function(){
+  if(!fileAudio) return;
+  initAudio(); if(aCtx.state==='suspended') aCtx.resume();
+  if(!fileSrc){
+    fileSrc=aCtx.createMediaElementSource(fileAudio);
+    fileSrc.connect(analyser); analyser.connect(aCtx.destination);
+  }
+  if(fileOn){
+    fileAudio.pause(); fileOn=false;
+    document.getElementById('pBtn').textContent='Play';
+    document.getElementById('pBtn').classList.remove('on');
+  } else {
+    fileAudio.play(); fileOn=true;
+    document.getElementById('pBtn').textContent='Pause';
+    document.getElementById('pBtn').classList.add('on');
+  }
+};
+
+/* ── METERS ──────────────────────────────────────────────── */
+function makeMeter(id,n){
+  var el=document.getElementById(id), bars=[];
+  for(var i=0;i<n;i++){
+    var b=document.createElement('div'); b.className='mb'; b.style.height='4px';
+    el.appendChild(b); bars.push(b);
+  }
+  return bars;
+}
+var MB=makeMeter('mBass',8), MM=makeMeter('mMid',8), MT=makeMeter('mTreb',8);
+
+function updateMeters(){
+  function up(bars,v){
+    var n=bars.length;
+    for(var i=0;i<n;i++){
+      var on=v>i/n;
+      bars[i].style.height = on?(Math.round(6+((i/n)*22))+'px'):'3px';
+      bars[i].style.background = on?'#fff':'rgba(255,255,255,0.07)';
+    }
+  }
+  up(MB,sBass); up(MM,sMid); up(MT,sTreb);
+}
+
+/* ── HUD AUTO HIDE ───────────────────────────────────────── */
+/* HUD: fades to dim when idle but NEVER blocks clicks */
+var hTimer;
+function showHud(){
+  document.getElementById('hud').classList.remove('hide');
+  clearTimeout(hTimer);
+  hTimer=setTimeout(function(){document.getElementById('hud').classList.add('hide');},6000);
+}
+document.addEventListener('mousemove', showHud);
+document.addEventListener('touchstart', showHud);
+document.getElementById('hud').addEventListener('mouseover', showHud);
+document.getElementById('hud').addEventListener('click', showHud);
+showHud();
+
+/* ── RESIZE ──────────────────────────────────────────────── */
+function resize(){
+  W=C.width=window.innerWidth;
+  H=C.height=window.innerHeight;
+  CX=W/2; CY=H/2;
+  initPools();
+}
+window.addEventListener('resize',resize);
+
+/* ── MODE ────────────────────────────────────────────────── */
+var mode='storm';
+window.setSens = function(v){
+  SENS = parseFloat(v);
+};
+window.setColor = function(v){
+  COLOR_HUE = parseFloat(v);
+  document.getElementById('slColor').value = v;
+  document.getElementById('vColor').textContent = Math.round(v)+'°';
+};
+window.toggleRandColor = function(){
+  RAND_COLOR = !RAND_COLOR;
+  var btn = document.getElementById('randBtn');
+  btn.classList.toggle('on', RAND_COLOR);
+  if(RAND_COLOR) RAND_TARGET = Math.random()*360;
+};
+window.setSpeed = function(v){
+  SPEED = 0.2 + (parseFloat(v)-1) * (3.0/9.0); /* map 1-10 to 0.2-3.2 */
+};
+window.setMode=function(m){
+  mode=m;
+  document.querySelectorAll('.stab[id^="m-"]').forEach(function(b){
+    b.classList.toggle('on', b.id==='m-'+m);
+  });
+  initPools();
+};
+window.toggleFS=function(){
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();
+  else document.exitFullscreen&&document.exitFullscreen();
+};
+
+/* ═══════════════════════════════════════════════════════════
+   3-D PARTICLE ENGINE
+   Perspective projection: screen_x = CX + x*(FL/z)
+   FL = focal length. Larger FL = less perspective distortion.
+   Particles live in a cube roughly ±1000 units.
+   ═══════════════════════════════════════════════════════════ */
+var FL = 600; // focal length
+
+function project(x,y,z){
+  var s = FL / (FL + z);
+  return { x: CX + x*s, y: CY + y*s, s: s };
+}
+
+/* ── PARTICLE POOLS ──────────────────────────────────────── */
+/* Three separate pools for bass / mid / treble.
+   Each pool uses a different region of 3D space and behavior.
+
+   BASS  — large slow deep particles. Z range: 200–800 (far back).
+           Respond to bass: explode outward, large radius.
+   MID   — medium particles mid-field. Z range: -100–300.
+           Respond to mid: lateral sweep, medium radius.
+   TREBLE— tiny fast particles close. Z range: -600–100 (front).
+           Respond to treble: rapid scatter, tiny bright dots.
+*/
+
+var POOLS = { bass:[], bass2:[], mid:[], treb:[] };
+var POOL_N = { bass:70, bass2:70, mid:140, treb:260 };
+
+function rnd(a,b){ return a+(b-a)*Math.random(); }
+function rndSign(){ return Math.random()<0.5?1:-1; }
+
+function mkBassParticle(){
+  var a=Math.random()*Math.PI*2;
+  var r=rnd(30,550);
+  return {
+    x: Math.cos(a)*r, y: rnd(-H*0.55, H*0.55),
+    z: rnd(200, 900),
+    vx: rnd(-0.4,0.4), vy: rnd(-0.6,-0.05),
+    vz: rnd(-0.5,0.5),
+    life: Math.random(), maxLife: rnd(0.18,0.38),
+    baseR: rnd(22,58),
+    band:'bass'
+  };
+}
+function mkMidParticle(){
+  var a=Math.random()*Math.PI*2;
+  var r=rnd(20,380);
+  return {
+    x: Math.cos(a)*r, y: rnd(-H*0.5, H*0.5),
+    z: rnd(-100, 350),
+    vx: rnd(-1.5,1.5)*rndSign(), vy: rnd(-1.0,0.3),
+    vz: rnd(-0.8,0.8),
+    life: Math.random(), maxLife: rnd(0.12,0.25),
+    baseR: rnd(5,13),
+    band:'mid'
+  };
+}
+function mkTrebParticle(){
+  var a=Math.random()*Math.PI*2;
+  var r=rnd(0,280);
+  return {
+    x: Math.cos(a)*r, y: rnd(-H*0.4, H*0.4),
+    z: rnd(-600, 50),
+    vx: rnd(-3.5,3.5), vy: rnd(-3.5,1),
+    vz: rnd(-2.5,2.5),
+    life: Math.random(), maxLife: rnd(0.06,0.14),
+    baseR: rnd(1.0,3.0),
+    band:'treb'
+  };
+}
+
+function mkBass2Particle(){
+  /* bass2 lives in different spatial region — more to the sides and upper half */
+  var a=Math.random()*Math.PI*2;
+  var r=rnd(80,620);
+  return {
+    x: Math.cos(a)*r, y: rnd(-H*0.7, H*0.15),
+    z: rnd(100, 850),
+    vx: rnd(-0.5,0.5), vy: rnd(-0.7,-0.02),
+    vz: rnd(-0.5,0.5),
+    life: Math.random(), maxLife: rnd(0.18,0.35),
+    baseR: rnd(16,44),
+    band:'bass2'
+  };
+}
+
+function initPools(){
+  POOLS.bass=[];POOLS.bass2=[];POOLS.mid=[];POOLS.treb=[];
+  for(var i=0;i<POOL_N.bass;i++)  POOLS.bass.push(mkBassParticle());
+  for(var i=0;i<POOL_N.bass2;i++) POOLS.bass2.push(mkBass2Particle());
+  for(var i=0;i<POOL_N.mid;i++)   POOLS.mid.push(mkMidParticle());
+  for(var i=0;i<POOL_N.treb;i++)  POOLS.treb.push(mkTrebParticle());
+}
+
+/* ── PARTICLE UPDATE ─────────────────────────────────────── */
+function updateParticle(p, bandVal, spawnFn, speedMul, forceMul){
+  p.life += (0.018 + bandVal*0.055) * SPEED;
+
+  /* band force — pushes particles outward / upward on loud signals */
+  var force = bandVal * forceMul;
+  p.vx += (p.x > 0 ? force : -force) * 0.04;
+  p.vy -= force * 0.06;  /* upward */
+
+  /* speed scale */
+  p.x  += p.vx * speedMul * SPEED * (0.8 + bandVal*2.5);
+  p.y  += p.vy * speedMul * SPEED * (0.8 + bandVal*2.5);
+  p.z  += p.vz * speedMul;
+
+  /* damping */
+  p.vx *= 0.97; p.vy *= 0.97; p.vz *= 0.98;
+
+  if(p.life >= p.maxLife) return spawnFn();
+  return p;
+}
+
+/* ── DRAW PARTICLE — emissive crisp sphere ───────────────── */
+/*
+   Emissive look = particle is its own light source.
+   Centre is pure bright colour, edge fades to BLACK (not transparent).
+   This gives the lit-sphere-against-black effect from the reference.
+   Dark unlit spheres = particles below threshold, drawn nearly black
+   with just a faint rim — creates contrast clusters.
+*/
+function drawParticle(p, bandVal, maxBandVal){
+  var pr = project(p.x, p.y, p.z + FL);
+  if(pr.x<-60||pr.x>W+60||pr.y<-60||pr.y>H+60) return;
+
+  var lifeFrac = p.life / p.maxLife;
+  /* sharp bloom: ramp up in first 20%, peak, then hard fall from 45% onward */
+  var envelope = lifeFrac < 0.20 ? lifeFrac/0.20
+               : lifeFrac > 0.45 ? Math.pow((1-lifeFrac)/0.55, 1.6)
+               : 1.0;
+  envelope = Math.max(0, envelope);
+
+  /* ── size ── */
+  var r = p.baseR * pr.s;
+  /* size: band drives peak size, envelope drives bloom/shrink over lifetime */
+  if(p.band==='bass')       r *= envelope * (1.5 + bandVal * 45.0);
+  else if(p.band==='bass2') r *= envelope * (1.2 + bandVal * 25.0);
+  else if(p.band==='mid')   r *= envelope * (1.0 + bandVal * 11.0);
+  else                      r *= envelope * (1.0 + bandVal * 5.0);
+  if(r < 1.0) return;
+
+  /* ── brightness threshold ──
+     Below threshold = draw as DARK sphere (the black balls in reference).
+     Above = emissive lit sphere.
+     This hard split is what creates the high contrast.
+  */
+  var threshold;
+  if(p.band==='bass'||p.band==='bass2') threshold = 0.18;
+  else if(p.band==='mid')               threshold = 0.12;
+  else                                  threshold = 0.08;
+
+  var lit = (bandVal * envelope) > threshold;
+
+  /* ── colour per band ──
+     bass  = white/near-white (dominant, neutral)
+     bass2 = cool blue-white (offset echo)
+     mid   = warm white / slight grey
+     treb  = pure white tiny sparks
+  */
+  var cr,cg,cb; /* emissive colour */
+  if(p.band==='bass')       { cr=255; cg=255; cb=255; }
+  else if(p.band==='bass2') { cr=180; cg=220; cb=255; }  /* blue tint */
+  else if(p.band==='mid')   { cr=255; cg=245; cb=220; }  /* warm */
+  else                      { cr=255; cg=255; cb=255; }
+
+  var hx = pr.x - r*0.30;
+  var hy = pr.y - r*0.26;
+
+  if(lit){
+    var brightness = Math.min(1, bandVal * envelope * 1.8);
+    /* emissive flat white — solid bright disc, tiny soft falloff at edge only */
+    var g = ctx.createRadialGradient(pr.x, pr.y, r*0.65, pr.x, pr.y, r);
+    g.addColorStop(0,   'rgba(255,255,255,'+brightness.toFixed(3)+')');
+    g.addColorStop(1.0, 'rgba(0,0,0,0)');
+
+    /* flat fill first */
+    ctx.beginPath();
+    ctx.arc(pr.x, pr.y, r*0.66, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,'+brightness.toFixed(3)+')';
+    ctx.fill();
+
+    /* soft edge falloff */
+    ctx.beginPath();
+    ctx.arc(pr.x, pr.y, r, 0, Math.PI*2);
+    ctx.fillStyle = g;
+    ctx.fill();
+  } else {
+    /* DARK sphere — nearly black with a faint cool rim */
+    var darkO = 0.55 + pr.s*0.2;  /* closer = slightly more visible */
+    var g = ctx.createRadialGradient(hx, hy, 0, pr.x, pr.y, r);
+    g.addColorStop(0,    'rgba(18,18,20,'+darkO.toFixed(3)+')');
+    g.addColorStop(0.60, 'rgba(10,10,12,'+darkO.toFixed(3)+')');
+    g.addColorStop(0.88, 'rgba(40,50,70,'+(darkO*0.4).toFixed(3)+')');  /* faint rim */
+    g.addColorStop(1.0,  'rgba(0,0,0,0)');
+    ctx.beginPath();
+    ctx.arc(pr.x, pr.y, r, 0, Math.PI*2);
+    ctx.fillStyle = g;
+    ctx.fill();
+  }
+}
+
+/* ── MODES ───────────────────────────────────────────────── */
+
+/* STORM — particles fly from depth toward viewer in all directions */
+function modeStorm(){
+  /* bass: slow massive particles rising from below */
+  for(var i=0;i<POOLS.bass.length;i++){
+    var p=POOLS.bass[i];
+    POOLS.bass[i]=updateParticle(p, sBass, mkBassParticle, 1.0, 1.8);
+    drawParticle(POOLS.bass[i], sBass, 1);
+  }
+  /* mid: lateral sweep */
+  for(var i=0;i<POOLS.mid.length;i++){
+    var p=POOLS.mid[i];
+    POOLS.mid[i]=updateParticle(p, sMid, mkMidParticle, 1.2, 1.5);
+    drawParticle(POOLS.mid[i], sMid, 1);
+  }
+  /* bass2: delayed echo of bass in upper region */
+  for(var i=0;i<POOLS.bass2.length;i++){
+    POOLS.bass2[i]=updateParticle(POOLS.bass2[i], sBass2, mkBass2Particle, 1.0, 1.8);
+    drawParticle(POOLS.bass2[i], sBass2, 1);
+  }
+  /* treble: fast small front particles */
+  for(var i=0;i<POOLS.treb.length;i++){
+    var p=POOLS.treb[i];
+    POOLS.treb[i]=updateParticle(p, sTreb, mkTrebParticle, 1.8, 1.2);
+    drawParticle(POOLS.treb[i], sTreb, 1);
+  }
+}
+
+/* TUNNEL — beat blasts particles toward viewer */
+function modeTunnel(){
+  var bv  = beatVal;
+  var bv2 = Math.min(beatVal*0.6, sBass2);
+  var mv  = sMid  * (0.15 + beatSmooth * 0.85);
+  var tv  = sTreb * (0.1  + beatSmooth * 0.9);
+  for(var i=0;i<POOLS.bass.length;i++){
+    var p=POOLS.bass[i];
+    p.vz -= 4.0 + bv*18;
+    if(p.z < -FL*0.8){
+      var np=mkBassParticle();
+      np.x=rnd(-W*0.5,W*0.5); np.y=rnd(-H*0.5,H*0.5);
+      np.z=rnd(600,1200); np.vz=rnd(-1,0);
+      POOLS.bass[i]=np; continue;
+    }
+    POOLS.bass[i]=updateParticle(p, bv, function(){
+      var np=mkBassParticle();
+      np.x=rnd(-W*0.4,W*0.4); np.y=rnd(-H*0.4,H*0.4);
+      np.z=rnd(700,1200); np.vz=rnd(-0.5,0);
+      return np;
+    }, 0.5, 0.5);
+    drawParticle(POOLS.bass[i], bv, 1);
+  }
+  for(var i=0;i<POOLS.bass2.length;i++){
+    var p=POOLS.bass2[i];
+    p.vz -= 3.0 + bv2*14;
+    if(p.z < -FL*0.8){
+      var np=mkBass2Particle();
+      np.x=rnd(-W*0.45,W*0.45); np.y=rnd(-H*0.45,H*0.45);
+      np.z=rnd(600,1100); np.vz=rnd(-0.8,0);
+      POOLS.bass2[i]=np; continue;
+    }
+    POOLS.bass2[i]=updateParticle(p, bv2, function(){
+      var np=mkBass2Particle();
+      np.x=rnd(-W*0.4,W*0.4); np.y=rnd(-H*0.4,H*0.4);
+      np.z=rnd(600,1100); np.vz=rnd(-0.5,0);
+      return np;
+    }, 0.5, 0.5);
+    drawParticle(POOLS.bass2[i], bv2, 1);
+  }
+  for(var i=0;i<POOLS.mid.length;i++){
+    POOLS.mid[i]=updateParticle(POOLS.mid[i], mv, mkMidParticle, 1.2, 1.0);
+    drawParticle(POOLS.mid[i], mv, 1);
+  }
+  for(var i=0;i<POOLS.treb.length;i++){
+    POOLS.treb[i]=updateParticle(POOLS.treb[i], tv, mkTrebParticle, 2.0, 0.8);
+    drawParticle(POOLS.treb[i], tv, 1);
+  }
+}
+
+/* PULSE — beat triggers concentric ring explosions */
+var pulseRings=[];
+function modePulse(){
+  if(beatVal > 0.3 && (pulseRings.length===0 || pulseRings[pulseRings.length-1].age > 6)){
+    pulseRings.push({r:0, maxR:Math.min(W,H)*0.55, strength:beatVal, age:0});
+    if(sBass2 > 0.12) pulseRings.push({r:0, maxR:Math.min(W,H)*0.42, strength:sBass2*0.7, age:0, echo:true});
+  }
+  /* draw rings */
+  for(var ri=pulseRings.length-1;ri>=0;ri--){
+    var rg=pulseRings[ri];
+    rg.r += 6 + rg.strength*14;
+    rg.age++;
+    var frac=rg.r/rg.maxR;
+    var alpha=(1-frac)*(rg.echo?0.4:0.85)*rg.strength;
+    if(alpha>0.01){
+      ctx.beginPath();
+      ctx.arc(CX, CY, rg.r, 0, Math.PI*2);
+      ctx.strokeStyle='rgba(255,255,255,'+alpha.toFixed(3)+')';
+      ctx.lineWidth = rg.echo ? (1+rg.strength*3) : (2+rg.strength*8);
+      ctx.stroke();
+    }
+    if(rg.r>=rg.maxR) pulseRings.splice(ri,1);
+  }
+  /* particles in background */
+  var bv  = beatVal;
+  var bv2 = Math.min(beatVal*0.6, sBass2);
+  var mv  = sMid  * (0.15 + beatSmooth * 0.85);
+  var tv  = sTreb * (0.1  + beatSmooth * 0.9);
+  for(var i=0;i<POOLS.bass.length;i++){
+    POOLS.bass[i]=updateParticle(POOLS.bass[i], bv, mkBassParticle, 0.8, 2.0);
+    drawParticle(POOLS.bass[i], bv, 1);
+  }
+  for(var i=0;i<POOLS.bass2.length;i++){
+    POOLS.bass2[i]=updateParticle(POOLS.bass2[i], bv2, mkBass2Particle, 0.8, 1.8);
+    drawParticle(POOLS.bass2[i], bv2, 1);
+  }
+  for(var i=0;i<POOLS.mid.length;i++){
+    POOLS.mid[i]=updateParticle(POOLS.mid[i], mv, mkMidParticle, 1.0, 1.2);
+    drawParticle(POOLS.mid[i], mv, 1);
+  }
+  for(var i=0;i<POOLS.treb.length;i++){
+    POOLS.treb[i]=updateParticle(POOLS.treb[i], tv, mkTrebParticle, 1.5, 0.8);
+    drawParticle(POOLS.treb[i], tv, 1);
+  }
+}
+
+/* BARS — frequency spectrum as vertical emissive bars, beat drives height */
+function modeBars(){
+  var bv = beatVal;
+  var mv = sMid  * (0.2 + beatSmooth * 0.8);
+  var tv = sTreb * (0.1 + beatSmooth * 0.9);
+  if(!fData) return;
+  var nBars = 48;
+  var barW  = W / nBars;
+  var step  = Math.floor(fData.length * 0.5 / nBars);
+  for(var i=0;i<nBars;i++){
+    var sum=0;
+    for(var k=0;k<step;k++) sum += fData[i*step+k];
+    var rawV = (sum/(step*255));
+    /* gate by beat — bars only bloom on beat */
+    var barV = rawV * (0.08 + beatSmooth * 0.92);
+    var barH  = H * barV * 2.2;
+    var cx2   = i * barW + barW*0.5;
+    if(barH < 2) continue;
+    /* emissive bar: bright centre column, dark sides */
+    var hw = barW * (0.18 + barV * 0.55);
+    var gx = ctx.createLinearGradient(cx2-hw, 0, cx2+hw, 0);
+    var alpha = Math.min(1, barV * 3.5);
+    gx.addColorStop(0,    'rgba(0,0,0,0)');
+    gx.addColorStop(0.25, 'rgba(255,255,255,'+(alpha*0.4).toFixed(3)+')');
+    gx.addColorStop(0.5,  'rgba(255,255,255,'+alpha.toFixed(3)+')');
+    gx.addColorStop(0.75, 'rgba(255,255,255,'+(alpha*0.4).toFixed(3)+')');
+    gx.addColorStop(1,    'rgba(0,0,0,0)');
+    /* vertical fade from base */
+    var gy = ctx.createLinearGradient(0, H, 0, H-barH);
+    gy.addColorStop(0,   'rgba(255,255,255,'+alpha.toFixed(3)+')');
+    gy.addColorStop(0.6, 'rgba(255,255,255,'+(alpha*0.5).toFixed(3)+')');
+    gy.addColorStop(1,   'rgba(255,255,255,0)');
+    ctx.save();
+    ctx.fillStyle = gx;
+    ctx.fillRect(cx2-hw*2, H-barH, hw*4, barH);
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.fillStyle = gy;
+    ctx.fillRect(cx2-hw*2, H-barH, hw*4, barH);
+    ctx.restore();
+    /* bright base dot */
+    if(barV > 0.15){
+      var dotG = ctx.createRadialGradient(cx2, H, 0, cx2, H, barW*1.5);
+      dotG.addColorStop(0,   'rgba(255,255,255,'+Math.min(1,barV*2).toFixed(3)+')');
+      dotG.addColorStop(1,   'rgba(0,0,0,0)');
+      ctx.fillStyle = dotG;
+      ctx.fillRect(cx2-barW*1.5, H-barW*1.5, barW*3, barW*3);
+    }
+  }
+  /* bass particles floating above bars */
+  for(var i=0;i<POOLS.bass.length;i++){
+    POOLS.bass[i]=updateParticle(POOLS.bass[i], bv, mkBassParticle, 0.8, 1.5);
+    drawParticle(POOLS.bass[i], bv, 1);
+  }
+  for(var i=0;i<POOLS.treb.length;i++){
+    POOLS.treb[i]=updateParticle(POOLS.treb[i], tv, mkTrebParticle, 1.5, 0.8);
+    drawParticle(POOLS.treb[i], tv, 1);
+  }
+}
+
+/* VOID — inverted depth: particles are dark holes punched into a dim field.
+   On beat the voids expand, screen goes near-black between beats. */
+function modeVoid(){
+  var bv  = beatVal;
+  var bv2 = Math.min(beatVal*0.65, sBass2);
+  var mv  = sMid  * (0.15 + beatSmooth * 0.85);
+  var tv  = sTreb * (0.1  + beatSmooth * 0.9);
+  /* dim background glow — only visible on beat */
+  if(beatSmooth > 0.05){
+    var bg = ctx.createRadialGradient(CX,CY,0,CX,CY,Math.min(W,H)*0.7);
+    bg.addColorStop(0,   'rgba(255,255,255,'+(beatSmooth*0.06).toFixed(3)+')');
+    bg.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+  }
+  /* draw particles as DARK voids using destination-out */
+  ctx.save();
+  /* first draw a faint white layer to cut into */
+  if(beatSmooth>0.04){
+    ctx.fillStyle='rgba(255,255,255,'+(beatSmooth*0.18).toFixed(3)+')';
+    ctx.fillRect(0,0,W,H);
+  }
+  ctx.globalCompositeOperation = 'destination-out';
+  for(var i=0;i<POOLS.bass.length;i++){
+    var p=POOLS.bass[i];
+    POOLS.bass[i]=updateParticle(p, bv, mkBassParticle, 0.9, 1.8);
+    var pp=POOLS.bass[i];
+    var pr2=project(pp.x, pp.y, pp.z+FL);
+    if(pr2.x<-60||pr2.x>W+60||pr2.y<-60||pr2.y>H+60) continue;
+    var lf=pp.life/pp.maxLife;
+    var env=lf<0.20?lf/0.20:lf>0.45?Math.pow((1-lf)/0.55,1.6):1.0;
+    var r2=pp.baseR*pr2.s*env*(1.5+bv*45.0);
+    if(r2<1) continue;
+    var vg=ctx.createRadialGradient(pr2.x,pr2.y,0,pr2.x,pr2.y,r2);
+    var op=Math.min(1,bv*env*2.0);
+    vg.addColorStop(0,   'rgba(0,0,0,'+op.toFixed(3)+')');
+    vg.addColorStop(0.5, 'rgba(0,0,0,'+(op*0.7).toFixed(3)+')');
+    vg.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.beginPath(); ctx.arc(pr2.x,pr2.y,r2,0,Math.PI*2);
+    ctx.fillStyle=vg; ctx.fill();
+  }
+  ctx.restore();
+  /* treble as normal bright sparks on top */
+  for(var i=0;i<POOLS.treb.length;i++){
+    POOLS.treb[i]=updateParticle(POOLS.treb[i], tv, mkTrebParticle, 2.0, 0.8);
+    drawParticle(POOLS.treb[i], tv, 1);
+  }
+}
+
+/* INVERT — white background, beat carves dark particles into it.
+   Between beats screen returns to white. */
+function modeInvert(){
+  var bv  = beatVal;
+  var bv2 = Math.min(beatVal*0.6, sBass2);
+  var mv  = sMid  * (0.2  + beatSmooth * 0.8);
+  var tv  = sTreb * (0.15 + beatSmooth * 0.85);
+  /* white field — brighter when quiet, darker on beat */
+  var whiteness = Math.max(0, 0.85 - beatSmooth * 0.6);
+  ctx.fillStyle='rgba(255,255,255,'+whiteness.toFixed(3)+')';
+  ctx.fillRect(0,0,W,H);
+  /* dark bass particles */
+  for(var i=0;i<POOLS.bass.length;i++){
+    var p=POOLS.bass[i];
+    POOLS.bass[i]=updateParticle(p, bv, mkBassParticle, 1.0, 1.8);
+    var pp=POOLS.bass[i];
+    var pr2=project(pp.x,pp.y,pp.z+FL);
+    if(pr2.x<-60||pr2.x>W+60||pr2.y<-60||pr2.y>H+60) continue;
+    var lf=pp.life/pp.maxLife;
+    var env=lf<0.20?lf/0.20:lf>0.45?Math.pow((1-lf)/0.55,1.6):1.0;
+    var r2=pp.baseR*pr2.s*env*(1.5+bv*45.0);
+    if(r2<1) continue;
+    var dg=ctx.createRadialGradient(pr2.x-r2*0.3,pr2.y-r2*0.25,r2*0.01,pr2.x,pr2.y,r2);
+    var op=Math.min(0.95,bv*env*1.8);
+    dg.addColorStop(0,   'rgba(0,0,0,'+op.toFixed(3)+')');
+    dg.addColorStop(0.62,'rgba(0,0,0,'+(op*0.6).toFixed(3)+')');
+    dg.addColorStop(0.84,'rgba(40,40,40,'+(op*0.25).toFixed(3)+')');
+    dg.addColorStop(1,   'rgba(0,0,0,0)');
+    /* flat dark core */
+    ctx.beginPath(); ctx.arc(pr2.x,pr2.y,r2*0.66,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,'+op.toFixed(3)+')'; ctx.fill();
+    ctx.beginPath(); ctx.arc(pr2.x,pr2.y,r2,0,Math.PI*2);
+    ctx.fillStyle=dg; ctx.fill();
+  }
+  /* bass2 slightly lighter dark */
+  for(var i=0;i<POOLS.bass2.length;i++){
+    var p=POOLS.bass2[i];
+    POOLS.bass2[i]=updateParticle(p, bv2, mkBass2Particle, 1.0, 1.8);
+    var pp=POOLS.bass2[i];
+    var pr2=project(pp.x,pp.y,pp.z+FL);
+    if(pr2.x<-60||pr2.x>W+60||pr2.y<-60||pr2.y>H+60) continue;
+    var lf=pp.life/pp.maxLife;
+    var env=lf<0.20?lf/0.20:lf>0.45?Math.pow((1-lf)/0.55,1.6):1.0;
+    var r2=pp.baseR*pr2.s*env*(1.2+bv2*25.0);
+    if(r2<1) continue;
+    ctx.beginPath(); ctx.arc(pr2.x,pr2.y,r2*0.66,0,Math.PI*2);
+    ctx.fillStyle='rgba(30,30,50,'+(Math.min(0.8,bv2*env*1.5)).toFixed(3)+')'; ctx.fill();
+  }
+  /* mid as small dark dots */
+  for(var i=0;i<POOLS.mid.length;i++){
+    POOLS.mid[i]=updateParticle(POOLS.mid[i], mv, mkMidParticle, 1.2, 1.2);
+    var pp=POOLS.mid[i];
+    var pr2=project(pp.x,pp.y,pp.z+FL);
+    if(pr2.x<-20||pr2.x>W+20||pr2.y<-20||pr2.y>H+20) continue;
+    var lf=pp.life/pp.maxLife;
+    var env=lf<0.20?lf/0.20:lf>0.45?Math.pow((1-lf)/0.55,1.6):1.0;
+    var r2=pp.baseR*pr2.s*env*(1.0+mv*11.0);
+    if(r2<0.5) continue;
+    ctx.beginPath(); ctx.arc(pr2.x,pr2.y,r2,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,'+(Math.min(0.7,mv*env*2).toFixed(3))+')'; ctx.fill();
+  }
+}
+
+/* RINGS — concentric beat rings + 3D particles */
+var ringList=[];
+function modeRings(){
+  var bv  = beatVal;
+  var bv2 = Math.min(beatVal*0.6, sBass2);
+  var mv  = sMid  * (0.15 + beatSmooth * 0.85);
+  var tv  = sTreb * (0.1  + beatSmooth * 0.9);
+  /* spawn ring on beat */
+  if(bv > 0.3 && (ringList.length===0 || ringList[ringList.length-1].age > 4)){
+    ringList.push({r:0, maxR:Math.min(W,H)*0.72, str:bv, age:0, echo:false});
+  }
+  if(bv2 > 0.15 && (ringList.length<2 || ringList[ringList.length-1].age>8)){
+    ringList.push({r:0, maxR:Math.min(W,H)*0.55, str:bv2, age:0, echo:true});
+  }
+  /* update and draw rings */
+  for(var ri=ringList.length-1;ri>=0;ri--){
+    var rg=ringList[ri];
+    rg.r += 5 + rg.str * 18;
+    rg.age++;
+    var frac=rg.r/rg.maxR;
+    var alpha=(1-frac)*(rg.echo?0.35:0.9)*rg.str;
+    if(alpha>0.005){
+      /* multiple concentric strokes for glowing ring */
+      for(var w=0;w<3;w++){
+        ctx.beginPath();
+        ctx.arc(CX, CY, rg.r, 0, Math.PI*2);
+        var wa = alpha * (w===0?1:w===1?0.4:0.15);
+        var ww = rg.echo?(0.5+w*0.5):(1.5+w*3+rg.str*6);
+        ctx.strokeStyle='rgba(255,255,255,'+wa.toFixed(3)+')';
+        ctx.lineWidth=ww; ctx.stroke();
+      }
+    }
+    if(rg.r>=rg.maxR) ringList.splice(ri,1);
+  }
+  /* 3D particles */
+  for(var i=0;i<POOLS.bass.length;i++){
+    POOLS.bass[i]=updateParticle(POOLS.bass[i], bv, mkBassParticle, 0.7, 2.0);
+    drawParticle(POOLS.bass[i], bv, 1);
+  }
+  for(var i=0;i<POOLS.bass2.length;i++){
+    POOLS.bass2[i]=updateParticle(POOLS.bass2[i], bv2, mkBass2Particle, 0.7, 1.8);
+    drawParticle(POOLS.bass2[i], bv2, 1);
+  }
+  for(var i=0;i<POOLS.mid.length;i++){
+    POOLS.mid[i]=updateParticle(POOLS.mid[i], mv, mkMidParticle, 1.0, 1.2);
+    drawParticle(POOLS.mid[i], mv, 1);
+  }
+  for(var i=0;i<POOLS.treb.length;i++){
+    POOLS.treb[i]=updateParticle(POOLS.treb[i], tv, mkTrebParticle, 1.8, 0.8);
+    drawParticle(POOLS.treb[i], tv, 1);
+  }
+}
+
+/* ── MAIN LOOP ───────────────────────────────────────────── */
+var frame=0;
+var trailAlpha = 0.18; /* black overlay — controls trail/persistence */
+
+function loop(){
+  requestAnimationFrame(loop);
+  frame++;
+
+  readBands();
+
+  /* smooth — bass punchy, treble instant */
+  var active=hasAudio();
+  sBass  += ((active?bass:0)  - sBass)  * 0.30;
+  sMid   += ((active?mid:0)   - sMid)   * 0.16;
+  sTreb  += ((active?treb:0)  - sTreb)  * 0.45;
+  /* bass2: read from delay buffer */
+  bassHistory.push(sBass);
+  if(bassHistory.length > BASS_DELAY) {
+    sBass2 += (bassHistory.shift() - sBass2) * 0.55;
+  }
+  /* ── BEAT DETECTION ──
+     A beat = sudden rise in bass above a threshold.
+     beatVal spikes on onset then decays fast — drives visuals.
+     Between beats beatVal is near 0 so particles stay dark/small.
+  */
+  var bassRise = sBass - prevBass;
+  if(active && bassRise > beatThresh/SENS && sBass > 0.35/SENS){
+    /* onset detected — spike beatVal proportional to rise strength */
+    beatVal = Math.min(1.0, beatVal + bassRise * 2.8);
+  }
+  beatVal  *= 0.72;   /* faster decay — cleaner separation */
+  sBass2 = Math.min(sBass2, beatVal * 0.7); /* bass2 echo also beat-gated */
+  beatSmooth += (beatVal - beatSmooth) * 0.35;
+  prevBass = sBass;
+
+  /* trail — bass hits clear faster for impact, treble leaves brief sparkle */
+  var ta = 0.14 + sBass*0.55;
+  ctx.fillStyle = 'rgba(0,0,0,'+Math.min(0.92,ta).toFixed(2)+')';
+  ctx.fillRect(0,0,W,H);
+
+  
+/* AURA — white background, vertical light columns react to frequency,
+   dark blue void orbs expand from center on beat.
+   Reference: soft blurry hourglass shape with vertical bar streaks. */
+function modeAura(){
+  var bv  = beatVal;
+  var bv2 = Math.min(beatVal*0.6, sBass2);
+  var mv  = sMid  * (0.15 + beatSmooth * 0.85);
+  var tv  = sTreb * (0.1  + beatSmooth * 0.9);
+
+  /* white base — dims slightly on beat */
+  ctx.fillStyle = 'rgba(245,247,252,'+(0.85 - beatSmooth*0.3).toFixed(3)+')';
+  ctx.fillRect(0,0,W,H);
+
+  /* vertical frequency columns — flat, 48 cols, strong blue */
+  if(fData){
+    var nCols = 90;
+    var step  = Math.floor(fData.length * 0.5 / nCols);
+    for(var i=0;i<nCols;i++){
+      var sum=0;
+      for(var k=0;k<step;k++) sum+=fData[i*step+k];
+      var v = (sum/(step*255)) * (0.1 + beatSmooth*0.9);
+      if(v<0.002) continue;
+      var cx2 = (i/nCols)*W + W/(nCols*2);
+      var colW = (W/nCols) * 2.5;
+      var distFromCentre = Math.abs(cx2 - CX) / (W*0.5);
+      var blueAmt = Math.max(0, 1 - distFromCentre*0.9);
+      /* base deep blue, shifted by COLOR_HUE */
+      var baseCol = hueShift([Math.round(10+(1-blueAmt)*180), Math.round(30+(1-blueAmt)*170), Math.round(180+blueAmt*75)]);
+      var r2=baseCol[0], g2=baseCol[1], b2=baseCol[2];
+      var alpha = Math.min(0.95, v * (2.2 + blueAmt*3.0));
+      var gx = ctx.createLinearGradient(cx2-colW, 0, cx2+colW, 0);
+      gx.addColorStop(0,    'rgba('+r2+','+g2+','+b2+',0)');
+      gx.addColorStop(0.35, 'rgba('+r2+','+g2+','+b2+','+(alpha*0.7).toFixed(3)+')');
+      gx.addColorStop(0.5,  'rgba('+r2+','+g2+','+b2+','+alpha.toFixed(3)+')');
+      gx.addColorStop(0.65, 'rgba('+r2+','+g2+','+b2+','+(alpha*0.7).toFixed(3)+')');
+      gx.addColorStop(1,    'rgba('+r2+','+g2+','+b2+',0)');
+      ctx.fillStyle = gx;
+      ctx.fillRect(cx2-colW, 0, colW*2, H);
+      /* emissive centre line */
+      if(alpha > 0.08){
+        ctx.beginPath(); ctx.moveTo(cx2,0); ctx.lineTo(cx2,H);
+        ctx.strokeStyle='rgba(180,210,255,'+(alpha*0.55).toFixed(3)+')';
+        ctx.lineWidth=0.5+blueAmt*1.5; ctx.stroke();
+      }
+    }
+  }
+
+  /* mid: faint blue column glow up the centre */
+  if(mv > 0.03){
+    var midColW = W*(0.12 + mv*0.18);
+    var mcg = ctx.createLinearGradient(CX-midColW, 0, CX+midColW, 0);
+    mcg.addColorStop(0,   'rgba('+midCol[0]+','+midCol[1]+','+midCol[2]+',0)');
+    var midCol=hueShift([10,30,255]);
+    mcg.addColorStop(0.5, 'rgba('+midCol[0]+','+midCol[1]+','+midCol[2]+','+(mv*1.2).toFixed(3)+')');
+    mcg.addColorStop(1,   'rgba('+midCol[0]+','+midCol[1]+','+midCol[2]+',0)');
+    ctx.fillStyle = mcg; ctx.fillRect(0,0,W,H);
+  }
+}
+
+
+
+/* ══════════════════════════════════════════════════════
+   BUBBLES 2D — soft glowing orbs, screen compositing
+   ══════════════════════════════════════════════════════ */
+var b2dY    = [0, 0, 0, 0];
+var b2dVY   = [0, 0, 0, 0];
+var b2dPhase= [0, 1.4, 2.8, 4.2];
+var b2dClock= 0;
+var B2D_DEFS = [
+  { band:'treb', ci:[140,200,255], co:[20,60,220],  baseX:0.50 },
+  { band:'mid',  ci:[255,140,220], co:[160,20,200], baseX:0.50 },
+  { band:'bas2', ci:[255,200,80],  co:[200,70,0],   baseX:0.50 },
+  { band:'bass', ci:[255,80,50],   co:[180,10,0],   baseX:0.50 }
+];
+/* hue-rotate an [r,g,b] by COLOR_HUE degrees */
+function hueShift(rgb){
+  var r=rgb[0]/255, g=rgb[1]/255, b=rgb[2]/255;
+  var max=Math.max(r,g,b), min=Math.min(r,g,b), d=max-min;
+  var h=0, s=d/max||0, l=(max+min)/2;
+  if(d){
+    if(max===r) h=((g-b)/d)%6;
+    else if(max===g) h=(b-r)/d+2;
+    else h=(r-g)/d+4;
+    h*=60; if(h<0)h+=360;
+  }
+  h=(h+COLOR_HUE)%360; if(h<0)h+=360;
+  var c=(1-Math.abs(2*l-1))*s, x=c*(1-Math.abs((h/60)%2-1)), m=l-c/2;
+  var r1,g1,b1;
+  var h6=h/60;
+  if(h6<1){r1=c;g1=x;b1=0;}else if(h6<2){r1=x;g1=c;b1=0;}
+  else if(h6<3){r1=0;g1=c;b1=x;}else if(h6<4){r1=0;g1=x;b1=c;}
+  else if(h6<5){r1=x;g1=0;b1=c;}else{r1=c;g1=0;b1=x;}
+  return [Math.round((r1+m)*255),Math.round((g1+m)*255),Math.round((b1+m)*255)];
+}
+function getBandVal2D(key){
+  if(key==='bass') return sBass;
+  if(key==='bas2') return sBass2;
+  if(key==='mid')  return sMid;
+  return sTreb;
+}
+function modeBubbles2D(){
+  b2dClock += 0.012 * SPEED;
+  ctx.globalCompositeOperation = 'screen';
+  for(var i=0;i<B2D_DEFS.length;i++){
+    var def = B2D_DEFS[i];
+    var bv  = getBandVal2D(def.band);
+    var baseY   = CY + (i-1.5)*H*0.18;
+    var drift   = Math.sin(b2dClock*0.55 + b2dPhase[i]) * H*0.14;
+    var beatKick= beatVal * H * 0.12 * (i%2===0?-1:1);
+    var freqPush= bv * H * 0.10;
+    var targetY = baseY + drift + beatKick + freqPush;
+    b2dVY[i] += (targetY - b2dY[i]) * 0.09;
+    b2dVY[i] *= 0.85;
+    b2dY[i]  += b2dVY[i];
+    var oy = b2dY[i];
+    var ox = def.baseX * W + Math.sin(b2dClock*0.4 + b2dPhase[i]*0.7)*W*0.06;
+    var r  = Math.min(W,H)*(0.14 + bv*0.42 + beatSmooth*0.12);
+    var intensity = 0.15 + bv*0.85;
+    /* outer bloom */
+    var ci=hueShift(def.ci), co=hueShift(def.co);
+    var g1 = ctx.createRadialGradient(ox,oy,r*0.3,ox,oy,r*2.0);
+    g1.addColorStop(0,   'rgba('+co[0]+','+co[1]+','+co[2]+','+(intensity*0.14).toFixed(3)+')');
+    g1.addColorStop(1,   'rgba('+co[0]+','+co[1]+','+co[2]+',0)');
+    ctx.beginPath(); ctx.arc(ox,oy,r*2.0,0,Math.PI*2);
+    ctx.fillStyle=g1; ctx.fill();
+    /* main orb */
+    var hx=ox-r*0.28, hy=oy-r*0.22;
+    var g2 = ctx.createRadialGradient(hx,hy,0,ox,oy,r);
+    g2.addColorStop(0,    'rgba(255,255,255,'+Math.min(1,intensity*1.1).toFixed(3)+')');
+    g2.addColorStop(0.18, 'rgba('+ci[0]+','+ci[1]+','+ci[2]+','+Math.min(1,intensity).toFixed(3)+')');
+    g2.addColorStop(0.55, 'rgba('+co[0]+','+co[1]+','+co[2]+','+Math.min(1,intensity*0.9).toFixed(3)+')');
+    g2.addColorStop(0.85, 'rgba('+co[0]+','+co[1]+','+co[2]+','+(intensity*0.3).toFixed(3)+')');
+    g2.addColorStop(1,    'rgba(0,0,0,0)');
+    ctx.beginPath(); ctx.arc(ox,oy,r,0,Math.PI*2);
+    ctx.fillStyle=g2; ctx.fill();
+    /* single clean rim */
+    ctx.beginPath(); ctx.arc(ox,oy,r*0.94,0,Math.PI*2);
+    ctx.strokeStyle='rgba('+ci[0]+','+ci[1]+','+ci[2]+','+(intensity*0.35).toFixed(3)+')';
+    ctx.lineWidth=2.2+bv*3.5; ctx.stroke();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+/* ══════════════════════════════════════════════════════
+   WAVE — circular rotating waveform with emissive trails
+   Frequency data mapped to radial spikes around a circle.
+   Rotates continuously, beat drives radius and spike height.
+   Trail history creates light-painting effect.
+   ══════════════════════════════════════════════════════ */
+var waveRotAngle = 0;
+var WAVE_SMOOTH  = new Float32Array(512);
+var WAVE_TRAIL   = [];   /* ring trail snapshots */
+var WAVE_TRAIL_MAX = 28;
+
+/* colour stops cycling through neon spectrum by angle */
+function waveColor(angle, alpha, hueOff){
+  var spin = modeWave._hue || 0;
+  var hue = ((angle / (Math.PI*2)) * 360 + spin + COLOR_HUE + (hueOff||0)) % 360;
+  /* convert to vivid RGB — pure saturated hues */
+  var h6 = hue/60;
+  var x  = 1 - Math.abs(h6%2-1);
+  var r2,g2,b2;
+  if(h6<1){r2=1;g2=x;b2=0;}else if(h6<2){r2=x;g2=1;b2=0;}
+  else if(h6<3){r2=0;g2=1;b2=x;}else if(h6<4){r2=0;g2=x;b2=1;}
+  else if(h6<5){r2=x;g2=0;b2=1;}else{r2=1;g2=0;b2=x;}
+  return 'rgba('+Math.round(r2*255)+','+Math.round(g2*255)+','+Math.round(b2*255)+','+alpha.toFixed(3)+')';
+}
+
+function modeWave(){
+  if(!fData) return;
+  var bv = beatVal;
+  var mv = sMid*(0.1+beatSmooth*0.9);
+  var tv = sTreb*(0.1+beatSmooth*0.9);
+
+  waveRotAngle += (0.004 + mv*0.018 + bv*0.04) * SPEED;
+  /* color spin — rotates hue so each spike gets different colour over time */
+  if(!modeWave._hue) modeWave._hue = 0;
+  modeWave._hue += (0.8 + mv*3.0 + bv*8.0) * SPEED;
+
+  var nPts = 180;  /* points around circle */
+  var step = Math.floor(fData.length*0.6/nPts);
+
+  /* smooth freq data */
+  for(var i=0;i<nPts;i++){
+    var sum=0;
+    for(var k=0;k<step;k++) sum+=fData[i*step+k];
+    var raw = sum/(step*255);
+    WAVE_SMOOTH[i] += (raw - WAVE_SMOOTH[i]) * 0.3;
+  }
+
+  /* base circle radius */
+  var baseR = Math.min(W,H) * (0.18 + beatSmooth*0.06);
+  /* spike scale — beat drives height dramatically */
+  var spikeScale = Math.min(W,H) * 5.50 * (0.06 + beatSmooth*0.94);  /* 100x total */
+
+  /* push trail snapshot */
+  var snap = { data: new Float32Array(nPts), angle: waveRotAngle, baseR: baseR, spikeScale: spikeScale };
+  for(var i=0;i<nPts;i++) snap.data[i] = WAVE_SMOOTH[i];
+  WAVE_TRAIL.push(snap);
+  if(WAVE_TRAIL.length > WAVE_TRAIL_MAX) WAVE_TRAIL.shift();
+
+  ctx.save();
+  ctx.translate(CX, CY);
+  ctx.globalCompositeOperation = 'screen';
+
+  /* blurry background blob — reacts to bass, trails behind */
+  var blobR = baseR * (1.2 + beatSmooth*2.8 + sBass*1.5);
+  var blobAlpha = 0.04 + beatSmooth*0.12;
+  /* use multiple large soft circles for blur illusion */
+  for(var bi=0;bi<4;bi++){
+    var bOff = bi*0.15;
+    var bg = ctx.createRadialGradient(0,0,blobR*0.1, 0,0,blobR*(1.4+bOff));
+    var bHue = (modeWave._hue||0) + COLOR_HUE + bi*45;
+    var bH6 = (bHue%360)/60;
+    var bx=1-Math.abs(bH6%2-1);
+    var br,bbg,bb;
+    if(bH6<1){br=1;bbg=bx;bb=0;}else if(bH6<2){br=bx;bbg=1;bb=0;}
+    else if(bH6<3){br=0;bbg=1;bb=bx;}else if(bH6<4){br=0;bbg=bx;bb=1;}
+    else if(bH6<5){br=bx;bbg=0;bb=1;}else{br=1;bbg=0;bb=bx;}
+    var bAlpha = blobAlpha*(1-bi*0.2);
+    bg.addColorStop(0,   'rgba('+Math.round(br*180)+','+Math.round(bbg*180)+','+Math.round(bb*255)+','+bAlpha.toFixed(3)+')');
+    bg.addColorStop(0.5, 'rgba('+Math.round(br*120)+','+Math.round(bbg*120)+','+Math.round(bb*200)+','+(bAlpha*0.4).toFixed(3)+')');
+    bg.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle=bg;
+    ctx.beginPath(); ctx.arc(0,0,blobR*(1.4+bOff),0,Math.PI*2);
+    ctx.fill();
+  }
+
+  /* draw trails oldest→newest, fading out */
+  for(var ti=0; ti<WAVE_TRAIL.length; ti++){
+    var tr    = WAVE_TRAIL[ti];
+    var tFrac = ti / WAVE_TRAIL.length;
+    var tAge  = 1 - tFrac;    /* 0=oldest, 1=newest */
+    var tAlpha= Math.pow(tFrac, 1.8) * 0.55;
+    if(tAlpha < 0.01) continue;
+    var tLW   = 0.5 + tFrac * 2.5;
+
+    /* draw mirrored inner+outer spikes */
+    for(var mirror=0; mirror<2; mirror++){
+      var mDir = mirror===0 ? 1 : -0.6;  /* outer spike taller, inner echo smaller */
+      ctx.beginPath();
+      for(var i=0;i<nPts;i++){
+        var angle = (i/nPts)*Math.PI*2 + tr.angle;
+        var spike = tr.data[i] * tr.spikeScale * mDir;
+        var r2    = tr.baseR + spike;
+        var x = Math.cos(angle)*r2;
+        var y = Math.sin(angle)*r2;
+        i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+      }
+      ctx.closePath();
+      var col = waveColor((0/nPts)*Math.PI*2, tAlpha*(mirror===0?1:0.4));
+      ctx.strokeStyle = col;
+      ctx.lineWidth   = tLW * (mirror===0?1:0.5);
+      ctx.stroke();
+    }
+  }
+
+  /* draw current frame — coloured by angle position, thick emissive lines */
+  /* multiple rings at different radii — each a different size/offset fraction */
+  /* hueOff: per-ring hue offset so each circle has a distinct colour */
+  var RINGS = [
+    { rMul:1.00, spikeMul:1.00, angOff:0,     lw:12.0, glow:54.0, alpMul:1.0,  hueOff:0   },
+    { rMul:0.82, spikeMul:0.70, angOff:0.08,  lw:9.0,  glow:36.0, alpMul:0.80, hueOff:51  },
+    { rMul:0.65, spikeMul:0.50, angOff:0.16,  lw:7.5,  glow:27.0, alpMul:0.65, hueOff:103 },
+    { rMul:0.50, spikeMul:0.35, angOff:0.25,  lw:6.0,  glow:21.0, alpMul:0.50, hueOff:154 },
+    { rMul:1.18, spikeMul:0.55, angOff:-0.06, lw:6.6,  glow:30.0, alpMul:0.55, hueOff:205 },
+    { rMul:1.38, spikeMul:0.30, angOff:-0.12, lw:5.4,  glow:24.0, alpMul:0.38, hueOff:257 },
+    { rMul:1.60, spikeMul:0.15, angOff:-0.20, lw:4.2,  glow:18.0, alpMul:0.24, hueOff:308 },
+  ];
+
+  for(var ri=0;ri<RINGS.length;ri++){
+    var RG     = RINGS[ri];
+    var ringR  = baseR * RG.rMul;
+    var rSpike = spikeScale * RG.spikeMul;
+    var aOff   = waveRotAngle + RG.angOff;
+    var baseA  = (0.3+beatSmooth*0.7)*RG.alpMul;
+
+    for(var i=0;i<nPts;i++){
+      var iNext=(i+1)%nPts;
+      var a0=(i/nPts)*Math.PI*2+aOff;
+      var a1=(iNext/nPts)*Math.PI*2+aOff;
+      var r0=ringR+WAVE_SMOOTH[i]*rSpike;
+      var r1=ringR+WAVE_SMOOTH[iNext]*rSpike;
+      var x0=Math.cos(a0)*r0, y0=Math.sin(a0)*r0;
+      var x1=Math.cos(a1)*r1, y1=Math.sin(a1)*r1;
+      var alpha=Math.min(1,baseA);
+      /* glow pass */
+      ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1);
+      ctx.strokeStyle=waveColor(a0, alpha*0.2, RG.hueOff);
+      ctx.lineWidth=RG.glow*(0.5+bv*0.8); ctx.stroke();
+      /* crisp pass */
+      ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1);
+      ctx.strokeStyle=waveColor(a0, alpha, RG.hueOff);
+      ctx.lineWidth=RG.lw*(0.6+bv*0.7); ctx.stroke();
+    }
+  }
+
+  /* bright center glow on beat */
+  if(beatSmooth > 0.05){
+    var cg = ctx.createRadialGradient(0,0,0, 0,0, baseR*0.6);
+    cg.addColorStop(0,   'rgba(255,255,255,'+(beatSmooth*0.35).toFixed(3)+')');
+    cg.addColorStop(0.5, 'rgba(200,100,255,'+(beatSmooth*0.15).toFixed(3)+')');
+    cg.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle=cg; ctx.beginPath(); ctx.arc(0,0,baseR*0.6,0,Math.PI*2); ctx.fill();
+  }
+
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.restore();
+}
+
+
+switch(mode){
+    case 'storm':   modeStorm();   break;
+    case 'aura':    modeAura();    break;
+    case 'bubbles': modeBubbles2D(); break;
+    case 'wave':    modeWave();    break;
+
+  }
+
+  /* auto colour */
+  if(RAND_COLOR){
+    RAND_HUE_VEL += (RAND_TARGET - COLOR_HUE) * 0.015;
+    RAND_HUE_VEL *= 0.88;
+    COLOR_HUE = (COLOR_HUE + RAND_HUE_VEL + 360) % 360;
+    if(Math.abs(RAND_TARGET - COLOR_HUE) < 2) RAND_TARGET = Math.random()*360;
+    document.getElementById('slColor').value = COLOR_HUE;
+    document.getElementById('vColor').textContent = Math.round(COLOR_HUE)+'°';
+  }
+  updateMeters();
+}
+
+resize();
+loop();
+</script>
+</body>
+</html>
