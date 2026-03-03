@@ -112,6 +112,108 @@
     footer { flex-shrink: 0; border-top: 1px solid var(--ink); display: grid; grid-template-columns: var(--side) 1fr; align-items: center; }
     .footer-brand { padding: 1rem 1.5rem; font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; border-right: 1px solid var(--faint); }
     .footer-copy { padding: 1rem 2rem; font-size: 9px; letter-spacing: 0.1em; color: var(--mid); }
+
+    /* ── MOBILE SIDEBAR TOGGLE ── */
+    .mob-filter-btn { display: none; }
+
+    /* ── MOBILE OVERLAY ── */
+    .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 199; }
+    .sidebar-overlay.show { display: block; }
+
+    /* ══════════════════════════════════════
+       MOBILE  ≤ 680px
+    ══════════════════════════════════════ */
+    @media (max-width: 680px) {
+      html, body { overflow: auto; height: auto; }
+      .view { display: none; flex-direction: column; height: auto; min-height: 100vh; }
+      .view.active { display: flex; }
+
+      /* Nav */
+      nav {
+        grid-template-columns: 1fr auto auto;
+        height: auto;
+        min-height: 48px;
+        position: sticky; top: 0; z-index: 100;
+      }
+      .nav-brand { padding: 0 1rem; font-size: 10px; }
+      .nav-person { display: none; }
+      .nav-links button { padding: 0 0.9rem; font-size: 9px; }
+
+      /* Mobile filter button */
+      .mob-filter-btn {
+        display: flex; align-items: center; justify-content: center;
+        background: none; border: none;
+        border-left: 1px solid var(--ink);
+        color: var(--mid); font-family: var(--f);
+        font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+        padding: 0 1rem; cursor: pointer; height: 100%;
+      }
+      .mob-filter-btn:hover { color: var(--ink); }
+
+      /* Layout: stack sidebar above main */
+      .layout { grid-template-columns: 1fr; overflow: visible; }
+
+      /* Sidebar: hidden off-screen by default, slides in */
+      .sidebar {
+        position: fixed; top: 0; left: -100%; width: 80%; max-width: 280px;
+        height: 100vh; z-index: 200;
+        background: var(--white); border-right: 1px solid var(--ink);
+        transition: left 0.28s ease; overflow-y: auto;
+      }
+      .sidebar.mob-open { left: 0; }
+
+      /* Main content: full width */
+      .main { overflow: visible; }
+      .main-hero { padding: 2rem 1.2rem 1.8rem; }
+      .main-hero-title { font-size: clamp(2.2rem, 10vw, 3rem); }
+
+      /* Project rows */
+      .project-row-inner { grid-template-columns: 1.8rem 1fr; gap: 0.8rem; padding: 1.2rem 1.2rem; }
+      .row-meta { display: none; }
+      .row-desc { font-size: 10.5px; }
+      .group-header { padding: 0.6rem 1.2rem; }
+      .expand-inner { grid-template-columns: 1.8rem 1fr; padding: 1.2rem 1.2rem; }
+
+      /* About section: single column */
+      #about-anchor > div:last-child { grid-template-columns: 1fr !important; }
+      #about-anchor > div:last-child > div { border-right: none !important; border-bottom: 1px solid var(--faint); padding: 1.5rem 1.2rem !important; }
+      #about-anchor > div:last-child > div:last-child { border-bottom: none; }
+      #about-anchor > div:first-child { padding: 0.7rem 1.2rem; }
+
+      /* Contact */
+      #contact-anchor > div:last-child { padding: 1.2rem !important; }
+      #contact-anchor > div:last-child > div { grid-template-columns: 80px 1fr !important; }
+      #contact-anchor > div:first-child { padding: 0.7rem 1.2rem; }
+
+      /* Footer */
+      footer { grid-template-columns: 1fr !important; }
+      .footer-brand { border-right: none; border-bottom: 1px solid var(--faint); }
+
+      /* ── PROJECT VIEW ── */
+      .proj-hero { grid-template-columns: 1fr !important; min-height: auto; }
+      .proj-hero-left { padding: 2rem 1.2rem 1.2rem; border-right: none !important; border-bottom: 1px solid var(--ink); }
+      .proj-hero-right { padding: 1.2rem 1.2rem 1.5rem; }
+      .proj-hero-desc { font-size: 0.85rem; }
+
+      .proj-meta { flex-direction: column; }
+      .meta-cell { min-width: unset; border-right: none !important; border-bottom: 1px solid var(--faint); padding: 0.85rem 1.2rem; }
+      .meta-cell:last-child { border-bottom: none; }
+
+      .body-section { grid-template-columns: 1fr !important; }
+      .body-heading { padding: 1.5rem 1.2rem 0.3rem; border-right: none !important; border-bottom: none; }
+      .body-text { padding: 0.5rem 1.2rem 1.5rem; grid-column: span 1 !important; }
+
+      .proj-img-grid { grid-template-columns: 1fr !important; }
+      .proj-img-cell { border-right: none !important; border-bottom: 1px solid var(--faint); }
+      .proj-img-cell:last-child { border-bottom: none; }
+
+      .proj-nav { grid-template-columns: 1fr 1fr; }
+      .proj-nav-btn { padding: 1.2rem 1rem; }
+
+      .back-bar { grid-template-columns: auto 1fr; }
+      .back-proj { display: none; }
+      .back-btn { padding: 0.7rem 1rem; }
+    }
   </style>
 </head>
 <body>
@@ -124,8 +226,10 @@
     <ul class="nav-links">
       <li><button onclick="scrollToId('about-anchor')">About</button></li>
       <li><button onclick="scrollToId('contact-anchor')">Contact</button></li>
+      <li><button class="mob-filter-btn" onclick="toggleMobSidebar()">&#9776; Filter</button></li>
     </ul>
   </nav>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobSidebar()"></div>
   <div class="layout">
     <aside class="sidebar">
       <div class="sidebar-section">
@@ -155,7 +259,7 @@
       <div class="sidebar-bio">
         <p class="bio-name">Tom Hwang</p>
         <p class="bio-roles">Professor<br>Product Designer<br>Media Artist</p>
-        <p class="bio-contact"><a href="mailto:studio@heuller.com">studio@heuller.com</a></p>
+        <p class="bio-contact"><a href="/cdn-cgi/l/email-protection#becdcacbdad7d1fed6dbcbd2d2dbcc90ddd1d3"><span class="__cf_email__" data-cfemail="17646362737e78577f72627b7b72653974787a">[email&#160;protected]</span></a></p>
       </div>
     </aside>
     <main class="main" id="main-scroll">
@@ -193,7 +297,7 @@
       <div id="contact-anchor" style="border-top:1px solid var(--ink);">
         <div style="padding:0.8rem 2.5rem;border-bottom:1px solid var(--faint);"><span style="font-size:9px;font-weight:500;letter-spacing:0.22em;text-transform:uppercase;">Contact</span></div>
         <div style="padding:2.5rem;font-size:12px;color:var(--mid);">
-          <div style="display:grid;grid-template-columns:110px 1fr;padding:0.75rem 0;border-top:1px solid var(--faint);"><span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;">Email</span><span><a href="mailto:studio@heuller.com" style="color:var(--ink);text-decoration:none;">studio@heuller.com</a></span></div>
+          <div style="display:grid;grid-template-columns:110px 1fr;padding:0.75rem 0;border-top:1px solid var(--faint);"><span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;">Email</span><span><a href="/cdn-cgi/l/email-protection#b7c4c3c2d3ded8f7dfd2c2dbdbd2c599d4d8da" style="color:var(--ink);text-decoration:none;"><span class="__cf_email__" data-cfemail="592a2d2c3d303619313c2c35353c2b773a3634">[email&#160;protected]</span></a></span></div>
           <div style="display:grid;grid-template-columns:110px 1fr;padding:0.75rem 0;border-top:1px solid var(--faint);"><span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;">Location</span><span>Seoul, KR &mdash; available globally</span></div>
           <div style="display:grid;grid-template-columns:110px 1fr;padding:0.75rem 0;border-top:1px solid var(--faint);border-bottom:1px solid var(--faint);"><span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;">Open for</span><span>Commissions, Lectures, Collaborations</span></div>
         </div>
@@ -251,7 +355,7 @@
   </footer>
 </div>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 var PROJECTS = [
 
   // ── UNREAL ENGINE ──────────────────────────────────────────────
@@ -511,6 +615,13 @@ window.navProject = function(dir) {
   if (featured[idx + dir]) { showProject(featured[idx + dir].id); } else { showIndex(); }
 };
 
+window.toggleMobSidebar = function(){
+  var sb = document.querySelector('.sidebar');
+  var ov = document.getElementById('sidebarOverlay');
+  var open = sb.classList.toggle('mob-open');
+  ov.classList.toggle('show', open);
+};
+
 window.scrollToId = function(id) {
   var el = document.getElementById(id);
   if (el) el.scrollIntoView({ behavior: "smooth" });
@@ -542,6 +653,10 @@ window.setCategory = function(id) {
   openId = null;
   updateSidebar();
   renderList();
+  /* close mobile sidebar if open */
+  var sb = document.querySelector('.sidebar');
+  var ov = document.getElementById('sidebarOverlay');
+  if(sb && sb.classList.contains('mob-open')){ sb.classList.remove('mob-open'); ov.classList.remove('show'); }
   var pl = document.getElementById("project-list");
   if (pl) pl.scrollIntoView({ behavior: "smooth", block: "start" });
 };
@@ -589,7 +704,7 @@ function renderList() {
       if (p.featured) {
         html += '<div class="project-row" data-id="' + p.id + '"><div class="project-row-inner" onclick="showProject(\'' + p.id + '\')">' + rowNum + rowBody + rowMeta + '</div></div>';
       } else {
-        html += '<div class="project-row' + (isOpen ? ' open' : '') + '" data-id="' + p.id + '"><div class="project-row-inner" onclick="toggleExpand(\'' + p.id + '\')">' + rowNum + rowBody + rowMeta + '</div><div class="expand-panel' + (isOpen ? ' open' : '') + '"><div class="expand-inner"><span></span><p class="expand-text">' + p.description + '</p></div></div></div>';
+        html += '<div class="project-row' + (isOpen ? ' open' : '') + '" data-id="' + p.id + '"><div class="project-row-inner" onclick="toggleExpand(\'' + p.id + '\')">' + rowNum + rowBody + rowMeta + '</div><div class="expand-panel' + (isOpen ? ' open' : '') + '"><div class="expand-inner"><span></span><div class="expand-text">' + (p.expandText || p.description || '') + '</div></div></div></div>';
       }
       n++;
     }
@@ -597,6 +712,7 @@ function renderList() {
   container.innerHTML = html;
 }
 
+// ── INIT ──
 updateSidebar();
 renderList();
 </script>
