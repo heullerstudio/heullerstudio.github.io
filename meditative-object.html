@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>404 Biomechanical Organisms</title>
+<style>
+body{margin:0;background:black;overflow:hidden;font-family:monospace}
+#ui{
+position:fixed;top:15px;left:50%;transform:translateX(-50%);
+display:flex;gap:15px;align-items:center;z-index:10;
+flex-wrap:wrap;
+}
+button{
+background:black;color:red;border:1px solid red;
+padding:6px 12px;cursor:pointer;
+}
+button:hover{background:red;color:black;}
+#label{
+position:fixed;bottom:30px;width:100%;text-align:center;
+color:red;font-size:18px;letter-spacing:3px;
+}
+#speedLabel{color:white;font-size:12px}
+</style>
+</head>
+<body>
+
+<div id="ui">
+<button onclick="setMode(0)">Agony</button>
+<button onclick="setMode(1)">Rage</button>
+<button onclick="setMode(2)">Blue</button>
+<button onclick="setMode(3)">Fracture</button>
+<button onclick="setMode(4)">Parasite</button>
+<button onclick="setMode(5)">Void</button>
+
+<span id="speedLabel">Speed</span>
+<input type="range" id="speed" min="0.2" max="3.0" step="0.01" value="1.0">
+</div>
+
+<div id="label">404 AGONY</div>
+<canvas id="gl"></canvas>
+
+<script>
+const canvas=document.getElementById("gl");
+const gl=canvas.getContext("webgl");
+canvas.width=window.innerWidth;
+canvas.height=window.innerHeight;
+gl.viewport(0,0,canvas.width,canvas.height);
+
+window.onresize=()=>{
+canvas.width=window.innerWidth;
+canvas.height=window.innerHeight;
+gl.viewport(0,0,canvas.width,canvas.height);
+};
+
+let speedControl=document.getElementById("speed");
+
+const vs=gl.createShader(gl.VERTEX_SHADER);
+gl.shaderSource(vs,`attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);} `);
+gl.compileShader(vs);
+
+const fs=gl.createShader(gl.FRAGMENT_SHADER);
+gl.shaderSource(fs,`
+precision highp float;
+uniform vec2 r;
+uniform float t;
+uniform int mode;
+
+#define MAX_STEPS 120
+#define MAX_DIST 40.
+#define SURF_DIST .001
+
+float sphere(vec3 p,float s){return length(p)-s;}
+
+mat2 rot(float a){
+float c=cos(a),s=sin(a);
+return mat2(c,-s,s,c);
+}
+
+float hash(vec3 p){
+return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);
+}
+
+float noise(vec3 p){
+vec3 i=floor(p);
+vec3 f=fract(p);
+f=f*f*(3.0-2.0*f);
+float n = mix(
+mix(
+mix(hash(i+vec3(0,0,0)),hash(i+vec3(1,0,0)),f.x),
+mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
+mix(
+mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),
+mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),
+f.z);
+return n;
+}
+
+float fbm(vec3 p){
+float v=0.;
+float a=.5;
+for(int i=0;i<4;i++){
+v+=noise(p)*a;
+p*=2.;
+a*=.5;
+}
+return v;
+}
+
+float map(vec3 p){
+
+p.xz*=rot(t*.25);
+
+if(mode==0){
+// AGONY (unchanged)
+float core=sphere(p,0.9+sin(t*3.)*.05);
+float ribs=abs(mod(atan(p.z,p.x)*6.0,1.0)-0.5)-0.45;
+core+=smoothstep(.02,.0,ribs)*.05;
+core+=sin(p.x*12.+t*5.)*.05;
+core+=sin(p.y*10.-t*4.)*.05;
+float cavity=sphere(p,0.4);
+return max(core,-cavity);
+}
+
+if(mode==1){
+// RAGE (unchanged)
+float d = sphere(p,0.65);
+float angle = atan(p.z,p.x);
+float tear = abs(sin(angle*24.0 + t*5.0));
+d += tear*0.15;
+float turbulence =
+sin(p.x*8.+t*3.)*
+sin(p.y*7.-t*2.)*
+sin(p.z*9.+t*4.);
+d += turbulence*0.12;
+d += sin(length(p)*18.0 - t*10.0)*0.05;
+float spike = pow(abs(sin(angle*12.0 + t*6.0)),3.0);
+d -= spike*0.25;
+return d;
+}
+
+if(mode==2){
+// BLUE (unchanged)
+float d = sphere(p,0.65);
+vec3 warpP = p + fbm(p*1.5 + t)*0.4;
+float displacement = fbm(warpP*3.0 - t*2.0);
+d += displacement * 0.35;
+float cycle = mod(t,4.0);
+float wave = abs(length(p) - cycle*0.8);
+float shock = exp(-wave*30.0);
+d -= shock*0.15;
+return d;
+}
+
+if(mode==3){
+// FRACTURE
+float d = sphere(p,0.9);
+float cracks = abs(sin(p.x*15.)*sin(p.y*15.)*sin(p.z*15.));
+d += cracks*0.1;
+d += fbm(p*3.0+t)*0.2;
+return d;
+}
+
+if(mode==4){
+// PARASITE
+vec3 q=p;
+q.y+=sin(p.x*5.+t)*0.3;
+float body=sphere(q,0.7);
+float tendrils=sin(p.x*10.)*sin(p.z*10.);
+body+=tendrils*0.1;
+body+=fbm(p*4.-t*2.)*0.25;
+return body;
+}
+
+if(mode==5){
+// VOID
+float d=sphere(p,1.0);
+d-=fbm(p*5.-t)*0.4;
+d+=sin(length(p)*20.-t*8.)*0.05;
+return d;
+}
+
+return 0.;
+}
+
+vec3 getNormal(vec3 p){
+vec2 e=vec2(.001,0);
+float d=map(p);
+vec3 n=d-vec3(
+map(p-e.xyy),
+map(p-e.yxy),
+map(p-e.yyx)
+);
+return normalize(n);
+}
+
+float rayMarch(vec3 ro,vec3 rd){
+float dO=0.;
+for(int i=0;i<MAX_STEPS;i++){
+vec3 p=ro+rd*dO;
+float dS=map(p);
+dO+=dS;
+if(dO>MAX_DIST||abs(dS)<SURF_DIST)break;
+}
+return dO;
+}
+
+vec3 renderScene(vec2 uv){
+vec3 ro=vec3(0,0,3.);
+vec3 rd=normalize(vec3(uv,-1.5));
+float d=rayMarch(ro,rd);
+vec3 col=vec3(0);
+
+if(d<MAX_DIST){
+vec3 p=ro+rd*d;
+vec3 n=getNormal(p);
+vec3 light=normalize(vec3(1.,1.,1.));
+float diff=max(dot(n,light),0.);
+float spec=pow(max(dot(reflect(-light,n),-rd),0.),60.);
+float rim=pow(1.-max(dot(n,-rd),0.),4.);
+
+vec3 base=vec3(.35,0.,0.);
+if(mode==1) base=vec3(1.0,.25,0.);
+if(mode==2) base=vec3(0.0,0.3,1.0);
+if(mode==3) base=vec3(0.1,0.1,0.1);
+if(mode==4) base=vec3(0.4,0.0,0.5);
+if(mode==5) base=vec3(0.0,0.0,0.0);
+
+float pulse=0.6+0.6*sin(t*6.);
+float glow=exp(-length(p)*3.) * pulse;
+
+vec3 emissive=vec3(1.,0.,0.)*glow;
+if(mode==3) emissive=vec3(1.0,0.3,0.0)*glow*3.;
+if(mode==4) emissive=vec3(0.8,0.0,1.0)*glow*2.;
+if(mode==5) emissive=vec3(0.2,0.2,0.4)*glow*4.;
+
+col = base*diff;
+col += spec*1.5;
+col += rim*base*2.0;
+col += emissive;
+}
+
+return col;
+}
+
+void main(){
+vec2 uv=(gl_FragCoord.xy-r*.5)/r.y;
+gl_FragColor=vec4(renderScene(uv),1.);
+}
+`);
+gl.compileShader(fs);
+
+const prog=gl.createProgram();
+gl.attachShader(prog,vs);
+gl.attachShader(prog,fs);
+gl.linkProgram(prog);
+gl.useProgram(prog);
+
+const buf=gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([
+-1,-1,1,-1,-1,1,
+-1,1,1,-1,1,1
+]),gl.STATIC_DRAW);
+
+const loc=gl.getAttribLocation(prog,"p");
+gl.enableVertexAttribArray(loc);
+gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+
+const timeLoc=gl.getUniformLocation(prog,"t");
+const resLoc=gl.getUniformLocation(prog,"r");
+const modeLoc=gl.getUniformLocation(prog,"mode");
+
+let currentMode=0;
+let start=performance.now();
+
+function setMode(m){
+currentMode=m;
+document.getElementById("label").innerText=
+"404 "+["AGONY","RAGE","BLUE","FRACTURE","PARASITE","VOID"][m];
+}
+
+function render(now){
+let speed=parseFloat(speedControl.value);
+let time=(now-start)*0.001*speed;
+
+gl.uniform1f(timeLoc,time);
+gl.uniform2f(resLoc,canvas.width,canvas.height);
+gl.uniform1i(modeLoc,currentMode);
+
+gl.drawArrays(gl.TRIANGLES,0,6);
+requestAnimationFrame(render);
+}
+requestAnimationFrame(render);
+</script>
+</body>
+</html>
